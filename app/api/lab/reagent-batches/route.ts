@@ -1,0 +1,38 @@
+import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
+import { requireRole } from '@/lib/auth';
+import { ok, fail, handleApiError } from '@/lib/http';
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await requireRole('super_admin');
+    const b = await req.json();
+    const db = getDb();
+
+    const reagent_id = Number(b.reagent_id);
+    const reagent = db.prepare(`SELECT * FROM lab_reagents WHERE id = ?`).get(reagent_id) as any;
+    if (!reagent) return fail('Reagent not found.');
+    const qty = Number(b.qty);
+    if (!qty || qty <= 0) return fail('Quantity must be greater than zero.');
+    const batch_no = String(b.batch_no || '').trim();
+    const expiry_date = String(b.expiry_date || '').trim();
+    if (!batch_no || !expiry_date) return fail('Batch number and expiry date are required.');
+
+    const qtyBefore = reagent.stock_qty;
+    const qtyAfter = qtyBefore + qty;
+
+    const tx = db.transaction(() => {
+      const batchResult = db.prepare(
+        `INSERT INTO lab_reagent_batches (reagent_id, batch_no, expiry_date, qty, created_by_user_id) VALUES (?, ?, ?, ?, ?)`
+      ).run(reagent_id, batch_no, expiry_date, qty, session.id);
+      db.prepare(`UPDATE lab_reagents SET stock_qty = ? WHERE id = ?`).run(qtyAfter, reagent_id);
+      db.prepare(
+        `INSERT INTO lab_reagent_movements (reagent_id, movement_type, qty_change, qty_before, qty_after, batch_id, created_by_user_id)
+         VALUES (?, 'opening', ?, ?, ?, ?, ?)`
+      ).run(reagent_id, qty, qtyBefore, qtyAfter, batchResult.lastInsertRowid, session.id);
+    });
+    tx();
+
+    return ok({ reagent: db.prepare(`SELECT * FROM lab_reagents WHERE id = ?`).get(reagent_id) }, 201);
+  } catch (err) { return handleApiError(err); }
+}

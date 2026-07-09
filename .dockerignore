@@ -1,0 +1,12 @@
+node_modules
+.next
+data
+.wwebjs_auth
+.wwebjs_cache
+.env
+.env.local
+.git
+.gitignore
+npm-debug.log*
+*.log
+README.md

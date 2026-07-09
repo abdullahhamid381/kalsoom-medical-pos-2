@@ -1,0 +1,30 @@
+import { NextRequest } from 'next/server';
+import { getDb } from '@/lib/db';
+import { requireRole, requireSession } from '@/lib/auth';
+import { ok, fail, handleApiError } from '@/lib/http';
+
+export async function GET(req: NextRequest) {
+  try {
+    await requireSession();
+    const db = getDb();
+    const q = req.nextUrl.searchParams.get('q')?.trim();
+    const conds: string[] = ['active = 1'];
+    const vals: any[] = [];
+    if (q) { conds.push('name LIKE ?'); vals.push(`%${q}%`); }
+    const antibiotics = db.prepare(`SELECT * FROM lab_antibiotics WHERE ${conds.join(' AND ')} ORDER BY name ASC`).all(...vals);
+    return ok({ antibiotics });
+  } catch (err) { return handleApiError(err); }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    await requireRole('super_admin', 'lab_technician', 'lab_senior_technologist', 'lab_pathologist');
+    const b = await req.json();
+    const name = String(b.name || '').trim();
+    if (!name) return fail('Antibiotic name is required.');
+    const db = getDb();
+    db.prepare(`INSERT INTO lab_antibiotics (name) VALUES (?) ON CONFLICT(name) DO UPDATE SET active = 1`).run(name);
+    const antibiotic = db.prepare(`SELECT * FROM lab_antibiotics WHERE name = ?`).get(name);
+    return ok({ antibiotic }, 201);
+  } catch (err) { return handleApiError(err); }
+}
