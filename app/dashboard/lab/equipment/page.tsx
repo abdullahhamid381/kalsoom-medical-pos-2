@@ -99,7 +99,7 @@ export default function LabEquipmentPage() {
               <button onClick={() => setMaintFor(maintFor === e.id ? null : e.id)} className="kmc-btn-ghost text-xs px-3 py-1.5 mt-3">Log Maintenance</button>
               {maintFor === e.id && (
                 <form onSubmit={handleMaintSubmit} className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div><label className="kmc-label">Date</label><input type="date" className="kmc-input text-xs" value={maintForm.maintenance_date} onChange={ev => setMaintForm({ ...maintForm, maintenance_date: ev.target.value })}/></div>
                     <div><label className="kmc-label">Next Due</label><input type="date" className="kmc-input text-xs" value={maintForm.next_due_date} onChange={ev => setMaintForm({ ...maintForm, next_due_date: ev.target.value })}/></div>
                   </div>

@@ -70,7 +70,7 @@ export default function SupplierLedgerPage() {
             {balance > 0 ? `Owed: Rs. ${balance.toFixed(0)}` : 'Settled'}
           </span>
         </div>
-        <div className="p-6 grid grid-cols-3 gap-4 text-sm">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           <div><p className="kmc-label">Received Value</p><p className="font-mono-num font-semibold text-navy-900">Rs. {receivedValue.toFixed(0)}</p></div>
           <div><p className="kmc-label">Paid</p><p className="font-mono-num font-semibold text-emerald-700">Rs. {totalPaid.toFixed(0)}</p></div>
           <div><p className="kmc-label">Returned</p><p className="font-mono-num font-semibold text-gray-600">Rs. {totalReturned.toFixed(0)}</p></div>

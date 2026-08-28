@@ -51,26 +51,34 @@ export function printThermal(html: string): void {
 
 // ─── Receipt HTML builders ────────────────────────────────────────────────────
 
-const FONT = `'Courier New', Courier, monospace`;
+// Thermal printers burn dots one character at a time - thin, low-weight text (and
+// anything less than pure black) comes out faint or invisible on the paper, even
+// though it looks fine on screen. So every receipt is bold-by-default, pure black,
+// and the print media query below forces that regardless of any inline color a
+// template might set, as a hard safety net.
+const FONT = `Arial, Helvetica, sans-serif`;
 const BASE_STYLE = `
   @page { size: 80mm auto; margin: 3mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { width: 80mm; max-width: 80mm; font-family: ${FONT}; font-size: 11px; color: #111; line-height: 1.5; padding: 4mm; }
+  body { width: 80mm; max-width: 80mm; font-family: ${FONT}; font-size: 12.5px; font-weight: 600; color: #000; line-height: 1.55; padding: 4mm; -webkit-font-smoothing: none; }
   .center { text-align: center; }
-  .bold { font-weight: 700; }
+  .bold { font-weight: 800; }
   .row { display: flex; justify-content: space-between; }
-  .dash { border-top: 1px dashed #000; margin: 4px 0; }
-  .small { font-size: 9.5px; }
-  .title { font-size: 13px; font-weight: 700; }
+  .dash { border-top: 1.5px dashed #000; margin: 5px 0; }
+  .small { font-size: 10.5px; }
+  .title { font-size: 14px; font-weight: 800; }
   img.barcode { display: block; max-width: 100%; height: 42px; margin: 4px auto; }
+  @media print {
+    * { color: #000 !important; opacity: 1 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
 `;
 
 interface ClinicInfo { name: string; address: string; phone: string; }
 
 const POWERED_BY = `
   <div class="dash"></div>
-  <div class="center small" style="opacity:.65">System powered by Krexen Technologies</div>
-  <div class="center small" style="opacity:.65">www.krexen.com</div>`;
+  <div class="center small">System powered by Krexen Technologies</div>
+  <div class="center small">www.krexen.com</div>`;
 
 export function appointmentReceiptHtml(appt: any, clinic: ClinicInfo, barcodeDataUrl?: string): string {
   const PAY: Record<string,string> = { cash:'Cash', jazzcash:'JazzCash', easypaisa:'EasyPaisa', bank_transfer:'Bank Transfer', card:'Card' };
@@ -193,7 +201,7 @@ export function admissionReceiptHtml(admission: any, charges: any[], clinic: Cli
     const rows = items.map((i: any) => `<div class="row"><span style="max-width:55%">${esc(i.description)}</span><span>Rs. ${i.total}</span></div>`).join('');
     const sub = items.reduce((s: number, i: any) => s + i.total, 0);
     return `<div class="bold" style="margin-top:4px">${CHARGE_LABELS[type] || type}:</div>${rows}<div class="row small"><span>Subtotal</span><span>Rs. ${sub}</span></div>`;
-  }).join('<div style="border-top:1px dotted #ccc;margin:3px 0"></div>');
+  }).join('<div style="border-top:1px dotted #000;margin:3px 0"></div>');
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${BASE_STYLE}</style></head><body>
   <div class="center">

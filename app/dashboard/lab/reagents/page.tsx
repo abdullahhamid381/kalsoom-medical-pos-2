@@ -108,7 +108,7 @@ export default function LabReagentsPage() {
               {batchFor === r.id && (
                 <form onSubmit={handleBatchSubmit} className="mt-3 space-y-2 border-t border-gray-100 pt-3">
                   <input className="kmc-input text-xs" placeholder="Batch no." value={batchForm.batch_no} onChange={ev => setBatchForm({ ...batchForm, batch_no: ev.target.value })} required/>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input type="date" className="kmc-input text-xs" value={batchForm.expiry_date} onChange={ev => setBatchForm({ ...batchForm, expiry_date: ev.target.value })} required/>
                     <input type="number" className="kmc-input text-xs font-mono-num" placeholder="Qty" value={batchForm.qty} onChange={ev => setBatchForm({ ...batchForm, qty: ev.target.value })} required/>
                   </div>

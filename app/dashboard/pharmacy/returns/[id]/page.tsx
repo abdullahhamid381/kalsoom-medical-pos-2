@@ -35,7 +35,7 @@ export default function ReturnDetailPage() {
           </div>
           <span className="kmc-badge text-sm font-bold px-3 py-1.5 bg-navy-100 text-navy-800 capitalize">{ret.outcome.replace('_',' ')}</span>
         </div>
-        <div className="p-6 grid grid-cols-2 gap-4 text-sm">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="kmc-label">Original Sale</p>
             <a href={`/dashboard/pharmacy/sales/${ret.sale_id}`} className="font-semibold text-navy-900 hover:text-crimson-600 flex items-center gap-1">

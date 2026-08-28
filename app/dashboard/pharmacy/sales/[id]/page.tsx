@@ -187,7 +187,7 @@ function SaleDetailInner() {
             {sale.payment_status.toUpperCase()}
           </span>
         </div>
-        <div className="p-6 grid grid-cols-2 gap-4 text-sm">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="kmc-label">Patient</p>
             <p className="font-semibold text-navy-900">{sale.patient_name}</p>

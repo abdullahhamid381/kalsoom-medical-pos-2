@@ -104,7 +104,7 @@ export default function PurchaseOrderDetailPage() {
           </div>
           <span className={`kmc-badge text-sm font-bold px-3 py-1.5 ${STATUS_COLORS[po.status]}`}>{po.status.replace('_',' ').toUpperCase()}</span>
         </div>
-        <div className="p-6 grid grid-cols-2 gap-4 text-sm">
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="kmc-label">Supplier</p>
             <a href={`/dashboard/pharmacy/suppliers/${po.supplier_id}`} className="font-semibold text-navy-900 hover:text-crimson-600 flex items-center gap-1">

@@ -299,6 +299,7 @@ function AdmissionDetailInner() {
             <div className="px-5 py-2 bg-mist/60 border-b border-gray-100">
               <p className="text-xs font-semibold text-navy-700 uppercase tracking-wide">{date}</p>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody>
                 {items.map((c:any) => (
@@ -331,6 +332,7 @@ function AdmissionDetailInner() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ))}
       </div>

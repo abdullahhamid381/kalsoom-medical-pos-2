@@ -31,7 +31,7 @@ export default function PrintLabReceiptPage() {
     <>
       <style>{`
         @page { size: 80mm auto; margin: 3mm; }
-        @media print { .no-print { display: none !important; } html,body { background:#fff; } }
+        @media print { .no-print { display: none !important; } html,body { background:#fff; } * { color:#000 !important; opacity:1 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
         * { box-sizing: border-box; } body { margin: 0; }
       `}</style>
 

@@ -55,6 +55,8 @@ export default function PrintReceiptPage() {
         @media print {
           .no-print { display: none !important; }
           html, body { background: #fff; }
+          /* Thermal printers render thin/gray text as faint or invisible - force solid black. */
+          * { color: #000 !important; opacity: 1 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         * { box-sizing: border-box; }
         body { margin: 0; }

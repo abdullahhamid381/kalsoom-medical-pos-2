@@ -55,23 +55,25 @@ export default function PatientLabHistoryPage() {
           <div className="px-5 py-3 border-b border-gray-100 bg-mist/60">
             <h3 className="font-display font-semibold text-navy-900 text-sm">{t.test_name}</h3>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-400 text-xs uppercase tracking-wide border-b border-gray-100">
-                {['Date', 'Order No', 'Result', 'Flag'].map(h => <th key={h} className="px-5 py-2.5 font-semibold">{h}</th>)}
+                {['Date', 'Order No', 'Result', 'Flag'].map(h => <th key={h} className="px-5 py-2.5 font-semibold whitespace-nowrap">{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {t.history.map((h: any, i: number) => (
                 <tr key={i} className="border-b border-gray-50 last:border-0">
-                  <td className="px-5 py-2.5 text-gray-500">{new Date(h.created_at).toLocaleDateString('en-PK')}</td>
-                  <td className="px-5 py-2.5 font-mono-num text-navy-800">{h.order_no}</td>
-                  <td className="px-5 py-2.5 font-mono-num font-semibold text-navy-900">{resultValue(h)}</td>
-                  <td className="px-5 py-2.5">{h.flag && <span className={`kmc-badge ${FLAG_STYLES[h.flag] || ''}`}>{h.flag}</span>}</td>
+                  <td className="px-5 py-2.5 text-gray-500 whitespace-nowrap">{new Date(h.created_at).toLocaleDateString('en-PK')}</td>
+                  <td className="px-5 py-2.5 font-mono-num text-navy-800 whitespace-nowrap">{h.order_no}</td>
+                  <td className="px-5 py-2.5 font-mono-num font-semibold text-navy-900 whitespace-nowrap">{resultValue(h)}</td>
+                  <td className="px-5 py-2.5 whitespace-nowrap">{h.flag && <span className={`kmc-badge ${FLAG_STYLES[h.flag] || ''}`}>{h.flag}</span>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ))}
     </div>

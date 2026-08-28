@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import clsx from 'clsx';
 import {
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   TestTube,
   BedDouble,
   Scissors,
+  X,
   Stethoscope as Logo
 } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth';
@@ -48,23 +50,37 @@ function bestMatchHref(pathname: string, hrefs: string[]): string | null {
   return best;
 }
 
-export default function Sidebar({ user, clinicName }: { user: SessionUser | null; clinicName: string }) {
+export default function Sidebar({
+  user,
+  clinicName,
+  mobileOpen = false,
+  onCloseMobile
+}: {
+  user: SessionUser | null;
+  clinicName: string;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}) {
   const pathname = usePathname();
   const visibleNav = NAV.filter((item) => !user || item.roles.includes(user.role));
   const activeMainHref = bestMatchHref(pathname, visibleNav.map((i) => i.href));
 
-  return (
-    <aside className="hidden md:flex md:flex-col w-64 shrink-0 bg-navy-950 text-white min-h-screen sticky top-0">
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-navy-500 to-crimson-600 flex items-center justify-center shrink-0">
-          <Logo size={18} className="text-white" />
-        </div>
-        <div className="min-w-0">
-          <p className="font-display font-bold text-sm leading-tight truncate">{clinicName}</p>
-          <p className="text-navy-300 text-[11px]">Appointment Desk</p>
-        </div>
-      </div>
+  // Close the mobile drawer automatically whenever the route changes (link tap).
+  useEffect(() => {
+    onCloseMobile?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
+  // Lock body scroll while the mobile drawer is open
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [mobileOpen]);
+
+  const navBody = (
+    <>
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {visibleNav.map((item) => {
           const active = item.href === activeMainHref;
@@ -187,6 +203,63 @@ export default function Sidebar({ user, clinicName }: { user: SessionUser | null
       <div className="px-5 py-4 border-t border-white/10 text-[11px] text-navy-400">
         &copy; {new Date().getFullYear()} {clinicName}
       </div>
-    </aside>
+    </>
+  );
+
+  const header = (
+    <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
+      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-navy-500 to-crimson-600 flex items-center justify-center shrink-0">
+        <Logo size={18} className="text-white" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-display font-bold text-sm leading-tight truncate">{clinicName}</p>
+        <p className="text-navy-300 text-[11px]">Appointment Desk</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar - always visible from md breakpoint up */}
+      <aside className="hidden md:flex md:flex-col w-64 shrink-0 bg-navy-950 text-white min-h-screen sticky top-0">
+        {header}
+        {navBody}
+      </aside>
+
+      {/* Mobile drawer - off-canvas, opened via the Topbar hamburger button */}
+      <div
+        className={clsx(
+          'md:hidden fixed inset-0 z-50 transition-opacity',
+          mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        )}
+        aria-hidden={!mobileOpen}
+      >
+        <div className="absolute inset-0 bg-black/50" onClick={onCloseMobile} />
+        <aside
+          className={clsx(
+            'absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-navy-950 text-white flex flex-col transition-transform duration-200',
+            mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-navy-500 to-crimson-600 flex items-center justify-center shrink-0">
+              <Logo size={18} className="text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-display font-bold text-sm leading-tight truncate">{clinicName}</p>
+              <p className="text-navy-300 text-[11px]">Appointment Desk</p>
+            </div>
+            <button
+              onClick={onCloseMobile}
+              aria-label="Close menu"
+              className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-navy-300 hover:bg-white/10 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          {navBody}
+        </aside>
+      </div>
+    </>
   );
 }

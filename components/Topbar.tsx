@@ -6,7 +6,7 @@ import { LogOut, Menu } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth';
 import { api } from '@/lib/api-client';
 
-export default function Topbar({ user }: { user: SessionUser | null }) {
+export default function Topbar({ user, onMenuClick }: { user: SessionUser | null; onMenuClick?: () => void }) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -24,9 +24,13 @@ export default function Topbar({ user }: { user: SessionUser | null }) {
   return (
     <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
       <div className="flex items-center justify-between px-5 py-3.5">
-        <div className="flex items-center gap-2 md:hidden">
-          <Menu size={20} className="text-navy-800" />
-        </div>
+        <button
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="md:hidden -ml-1.5 w-9 h-9 rounded-lg flex items-center justify-center text-navy-800 hover:bg-mist"
+        >
+          <Menu size={20} />
+        </button>
         <div className="hidden md:block">
           <p className="text-sm text-gray-500">
             Welcome back, <span className="font-semibold text-navy-900">{user?.name || 'User'}</span>

@@ -49,23 +49,24 @@ export default function LabWorklistPage() {
           <div className="px-5 py-3 border-b border-gray-100 bg-mist/60">
             <h3 className="font-display font-semibold text-navy-900 text-sm">{group.category}</h3>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-400 text-xs uppercase tracking-wide border-b border-gray-100">
-                {['Order No', 'Patient', 'Test', 'Priority', 'Assigned To', 'Action'].map(h => <th key={h} className="px-5 py-2.5 font-semibold">{h}</th>)}
+                {['Order No', 'Patient', 'Test', 'Priority', 'Assigned To', 'Action'].map(h => <th key={h} className="px-5 py-2.5 font-semibold whitespace-nowrap">{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {group.items.map((item: any) => (
                 <tr key={item.order_item_id} className="border-b border-gray-50 last:border-0">
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 whitespace-nowrap">
                     <Link href={`/dashboard/lab/orders/${item.order_id}`} className="font-mono-num text-navy-800 hover:underline">{item.order_no}</Link>
                   </td>
-                  <td className="px-5 py-3 font-medium text-navy-900">{item.patient_name}</td>
-                  <td className="px-5 py-3 text-gray-600">{item.test_name}</td>
+                  <td className="px-5 py-3 font-medium text-navy-900 whitespace-nowrap">{item.patient_name}</td>
+                  <td className="px-5 py-3 text-gray-600 whitespace-nowrap">{item.test_name}</td>
                   <td className="px-5 py-3"><span className={`kmc-badge ${PRIORITY_STYLES[item.priority] || ''}`}>{item.priority}</span></td>
-                  <td className="px-5 py-3 text-gray-500 text-xs">{item.assigned_technician_name || '—'}</td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 text-gray-500 text-xs whitespace-nowrap">{item.assigned_technician_name || '—'}</td>
+                  <td className="px-5 py-3 whitespace-nowrap">
                     {item.assigned_technician_id ? (
                       <button disabled={busyId === item.order_item_id} onClick={() => unassign(item.order_item_id)} className="text-xs text-gray-400 hover:text-crimson-600">Unassign</button>
                     ) : (
@@ -76,6 +77,7 @@ export default function LabWorklistPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ))}
     </div>
