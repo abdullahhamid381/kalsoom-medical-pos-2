@@ -5,6 +5,12 @@ import crypto from 'crypto';
 import { getDb, getUploadsDir } from '@/lib/db';
 import { requireSession } from '@/lib/auth';
 import { ok, fail, handleApiError } from '@/lib/http';
+
+// Every route here reads the session cookie, so none of them can be statically
+// generated at build time - declare that explicitly instead of letting Next.js
+// discover it per-request (which otherwise logs a harmless but noisy
+// 'Dynamic server usage' error to the console during `next build`).
+export const dynamic = 'force-dynamic';
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 export async function GET(req: NextRequest) {

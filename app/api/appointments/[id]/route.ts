@@ -3,6 +3,12 @@ import { getDb, nextTokenNumber } from '@/lib/db';
 import { requireSession, requireRole } from '@/lib/auth';
 import { ok, fail, handleApiError } from '@/lib/http';
 import { appointmentSelect } from '@/lib/appointments-query';
+
+// Every route here reads the session cookie, so none of them can be statically
+// generated at build time - declare that explicitly instead of letting Next.js
+// discover it per-request (which otherwise logs a harmless but noisy
+// 'Dynamic server usage' error to the console during `next build`).
+export const dynamic = 'force-dynamic';
 const STATUSES = ['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'no_show'];
 const PAYMENT_METHODS = ['cash', 'jazzcash', 'easypaisa', 'bank_transfer', 'card'];
 export async function GET(_req: NextRequest, { params }: {

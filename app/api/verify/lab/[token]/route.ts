@@ -1,6 +1,12 @@
 import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/db';
 import { ok } from '@/lib/http';
+
+// Every route here reads the session cookie, so none of them can be statically
+// generated at build time - declare that explicitly instead of letting Next.js
+// discover it per-request (which otherwise logs a harmless but noisy
+// 'Dynamic server usage' error to the console during `next build`).
+export const dynamic = 'force-dynamic';
 // Intentionally public — no requireSession(). Only returns non-clinical confirmation
 // fields (order no, patient name, report date, signed-by) so a report can be verified
 // by anyone who scans its QR code without leaking test results/PHI.

@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/db';
 import { requireRole, requireSession } from '@/lib/auth';
 import { ok, fail, handleApiError } from '@/lib/http';
+
+// Every route here reads the session cookie, so none of them can be statically
+// generated at build time - declare that explicitly instead of letting Next.js
+// discover it per-request (which otherwise logs a harmless but noisy
+// 'Dynamic server usage' error to the console during `next build`).
+export const dynamic = 'force-dynamic';
 async function withMembers(db: any, panels: any[]) {
     const memberStmt = db.prepare(`SELECT lt.id, lt.name FROM lab_panel_tests lpt JOIN lab_tests lt ON lt.id = lpt.test_id WHERE lpt.panel_id = ? ORDER BY lt.name`);
     return Promise.all(panels.map(async (p) => ({ ...p, member_tests: await memberStmt.all(p.id) })));

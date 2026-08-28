@@ -3,6 +3,12 @@ import { getDb } from '@/lib/db';
 import { requireRole, requireSession } from '@/lib/auth';
 import { ok, fail, handleApiError } from '@/lib/http';
 import { resolveReferenceRange, computeFlag, computeTextFlag, formatRangeDisplay } from '@/lib/lab-results';
+
+// Every route here reads the session cookie, so none of them can be statically
+// generated at build time - declare that explicitly instead of letting Next.js
+// discover it per-request (which otherwise logs a harmless but noisy
+// 'Dynamic server usage' error to the console during `next build`).
+export const dynamic = 'force-dynamic';
 // v1 default: any numeric result more than 20% different from the patient's last result
 // for the same test is flagged for review. Not yet configurable per-test.
 const DELTA_THRESHOLD_PCT = 0.2;
