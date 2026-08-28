@@ -101,6 +101,10 @@ export default function PrintPurchaseOrderPage() {
         <div style={{ marginTop: 40, fontSize: 11, color: '#555' }}>
           Raised by {po.created_by_name}
         </div>
+
+        <div style={{ marginTop: 24, borderTop: '1px dashed #ccc', paddingTop: 8, textAlign: 'center', fontSize: 9, color: '#9aa6ba' }}>
+          System powered by Krexen Technologies · www.krexen.com
+        </div>
       </div>
     </>
   );

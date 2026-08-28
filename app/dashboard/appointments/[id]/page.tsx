@@ -20,6 +20,7 @@ import {
 import StatusBadge from '@/components/StatusBadge';
 import { useSession } from '@/lib/session-context';
 import { printThermal, appointmentReceiptHtml } from '@/lib/thermal-print';
+import { formatTime12h } from '@/lib/format';
 
 async function fetchAsDataUrl(url: string): Promise<string> {
   const res = await fetch(url, { credentials: 'same-origin' });
@@ -67,7 +68,7 @@ function AppointmentDetailInner() {
 
   const isDoctor = session?.role === 'doctor';
   const isSuperAdmin = session?.role === 'super_admin';
-  const canEdit = session?.role === 'super_admin' || session?.role === 'receptionist';
+  const canEdit = session?.role === 'super_admin' || session?.role === 'receptionist' || session?.role === 'receptionist_admin';
   const [printing, setPrinting] = useState(false);
 
   async function handlePrint() {
@@ -225,7 +226,7 @@ function AppointmentDetailInner() {
             </p>
             <p className="font-semibold text-navy-900">{appt.appointment_date}</p>
             <p className="text-sm text-gray-500 font-mono-num flex items-center gap-1.5 mt-0.5">
-              <Clock size={12} /> {appt.appointment_time}
+              <Clock size={12} /> {formatTime12h(appt.appointment_time)}
             </p>
           </div>
 

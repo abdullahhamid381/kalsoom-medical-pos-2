@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Banknote, Smartphone, Landmark, CreditCard, Wallet, UserPlus, Search } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import PatientSearch, { Patient } from '@/components/PatientSearch';
+import { formatTime12h as formatSlot } from '@/lib/format';
 
 type Doctor = {
   id: number;
@@ -13,6 +14,7 @@ type Doctor = {
   department: string;
   fee: number;
   active: number;
+  slots: string[];
 };
 
 const PAYMENT_METHODS: { value: string; label: string; icon: any }[] = [
@@ -25,10 +27,6 @@ const PAYMENT_METHODS: { value: string; label: string; icon: any }[] = [
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
-}
-function nowTimeStr() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 export default function NewAppointmentPage() {
@@ -50,7 +48,9 @@ export default function NewAppointmentPage() {
   const [loadingDoctors, setLoadingDoctors] = useState(true);
 
   const [appointmentDate, setAppointmentDate] = useState(todayStr());
-  const [appointmentTime, setAppointmentTime] = useState(nowTimeStr());
+  const [appointmentTime, setAppointmentTime] = useState('');
+  const [bookedTimes, setBookedTimes] = useState<Set<string>>(new Set());
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [department, setDepartment] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -80,6 +80,28 @@ export default function NewAppointmentPage() {
       setDepartment(selectedDoctor.department);
     }
   }, [selectedDoctor]);
+
+  useEffect(() => {
+    setAppointmentTime('');
+    if (!doctorId || !appointmentDate) {
+      setBookedTimes(new Set());
+      return;
+    }
+    let active = true;
+    setLoadingSlots(true);
+    api
+      .get(`/api/appointments?doctor_id=${doctorId}&date=${appointmentDate}`)
+      .then((data) => {
+        if (!active) return;
+        const taken = (data.appointments || [])
+          .filter((a: any) => a.status !== 'cancelled')
+          .map((a: any) => a.appointment_time);
+        setBookedTimes(new Set(taken));
+      })
+      .catch(() => { if (active) setBookedTimes(new Set()); })
+      .finally(() => { if (active) setLoadingSlots(false); });
+    return () => { active = false; };
+  }, [doctorId, appointmentDate]);
 
   useEffect(() => {
     if (!touchedPaid) setPaidAmount(Math.max(amount - discount, 0));
@@ -275,15 +297,41 @@ export default function NewAppointmentPage() {
                 required
               />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="kmc-label">Appointment Time *</label>
-              <input
-                type="time"
-                className="kmc-input"
-                value={appointmentTime}
-                onChange={(e) => setAppointmentTime(e.target.value)}
-                required
-              />
+              {!selectedDoctor ? (
+                <p className="text-xs text-gray-400">Select a doctor to see available time slots.</p>
+              ) : loadingSlots ? (
+                <p className="text-xs text-gray-400">Loading slots...</p>
+              ) : selectedDoctor.slots.length === 0 ? (
+                <p className="text-xs text-crimson-600">
+                  This doctor has no time slots configured yet. Add slots on the Doctors page before booking.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {selectedDoctor.slots.map((t) => {
+                    const taken = bookedTimes.has(t);
+                    const active = appointmentTime === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={taken}
+                        onClick={() => setAppointmentTime(t)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          taken
+                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
+                            : active
+                            ? 'border-navy-700 bg-navy-700 text-white'
+                            : 'border-gray-200 text-gray-700 hover:bg-mist'
+                        }`}
+                      >
+                        {formatSlot(t)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div>
               <label className="kmc-label">Department</label>

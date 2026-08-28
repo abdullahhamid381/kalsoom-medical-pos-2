@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ScanLine, User, Stethoscope, CalendarDays, Clock, Wallet, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import StatusBadge from '@/components/StatusBadge';
+import { formatTime12h } from '@/lib/format';
 
 const FORWARD_STEPS: Record<string, { next: string; label: string } | undefined> = {
   pending: { next: 'confirmed', label: 'Confirm Arrival' },
@@ -121,7 +122,7 @@ export default function ScanPatientPage() {
                 <CalendarDays size={13} /> Date / Time
               </p>
               <p className="text-sm text-gray-700">
-                {appt.appointment_date} <span className="font-mono-num">{appt.appointment_time}</span>
+                {appt.appointment_date} <span className="font-mono-num">{formatTime12h(appt.appointment_time)}</span>
               </p>
             </div>
             <div>

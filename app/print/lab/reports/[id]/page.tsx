@@ -175,6 +175,7 @@ export default function PrintLabReportPage() {
           <div style={{ fontWeight: 700 }}>Verified by: {order.reported_by_name || 'Pending verification'}</div>
           {order.reported_at && <div style={{ color: '#475467' }}>Reported on {new Date(order.reported_at).toLocaleString('en-PK')}</div>}
           <div style={{ color: '#9aa6ba', marginTop: 6, fontSize: 8 }}>Computer generated report. Results should be interpreted in correlation with clinical findings.</div>
+          <div style={{ color: '#9aa6ba', marginTop: 4, fontSize: 8, textAlign: 'center' }}>System powered by Krexen Technologies · www.krexen.com</div>
         </div>
       </div>
     </>

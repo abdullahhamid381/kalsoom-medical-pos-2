@@ -85,6 +85,10 @@ export default function PrintPharmacyReceiptPage() {
           Status: {sale.payment_status.toUpperCase()} | Served by {sale.sold_by_name}<br/>
           Thank you for visiting {clinic.name}!
         </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ textAlign: 'center', fontSize: 8, color: '#888' }}>System powered by Krexen Technologies</div>
+        <div style={{ textAlign: 'center', fontSize: 8, color: '#888' }}>www.krexen.com</div>
       </div>
     </>
   );

@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, CalendarPlus, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, CalendarPlus, X, Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import StatusBadge from '@/components/StatusBadge';
+import { formatTime12h } from '@/lib/format';
+import { useSession } from '@/lib/session-context';
 
 type Doctor = { id: number; name: string };
 
@@ -13,10 +16,15 @@ function todayStr() {
 }
 
 export default function AppointmentsListPage() {
+  const router = useRouter();
+  const session = useSession();
+  const canEdit = session?.role === 'super_admin' || session?.role === 'receptionist' || session?.role === 'receptionist_admin';
+  const isSuperAdmin = session?.role === 'super_admin';
   const [appointments, setAppointments] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [date, setDate] = useState(todayStr());
   const [doctorId, setDoctorId] = useState('');
@@ -31,32 +39,47 @@ export default function AppointmentsListPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      setLoading(true);
-      setError('');
-      try {
-        const params = new URLSearchParams();
-        if (date) params.set('date', date);
-        if (doctorId) params.set('doctor_id', doctorId);
-        if (status) params.set('status', status);
-        if (paymentStatus) params.set('payment_status', paymentStatus);
-        if (q.trim()) params.set('q', q.trim());
-        const data = await api.get(`/api/appointments?${params.toString()}`);
-        if (active) setAppointments(data.appointments || []);
-      } catch (err: any) {
-        if (active) setError(err.message);
-      } finally {
-        if (active) setLoading(false);
-      }
+  async function load(activeRef?: { current: boolean }) {
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      if (date) params.set('date', date);
+      if (doctorId) params.set('doctor_id', doctorId);
+      if (status) params.set('status', status);
+      if (paymentStatus) params.set('payment_status', paymentStatus);
+      if (q.trim()) params.set('q', q.trim());
+      const data = await api.get(`/api/appointments?${params.toString()}`);
+      if (!activeRef || activeRef.current) setAppointments(data.appointments || []);
+    } catch (err: any) {
+      if (!activeRef || activeRef.current) setError(err.message);
+    } finally {
+      if (!activeRef || activeRef.current) setLoading(false);
     }
-    const t = setTimeout(load, 200);
+  }
+
+  useEffect(() => {
+    const activeRef = { current: true };
+    const t = setTimeout(() => load(activeRef), 200);
     return () => {
-      active = false;
+      activeRef.current = false;
       clearTimeout(t);
     };
   }, [date, doctorId, status, paymentStatus, q]);
+
+  async function handleDelete(a: any, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm('Permanently delete this appointment? This cannot be undone. Consider cancelling instead if you just want to keep a record.')) return;
+    setDeletingId(a.id);
+    try {
+      await api.delete(`/api/appointments/${a.id}`);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   function clearFilters() {
     setDate('');
@@ -137,19 +160,20 @@ export default function AppointmentsListPage() {
               <th className="px-5 py-3 font-semibold">Payment</th>
               <th className="px-5 py-3 font-semibold">Status</th>
               <th className="px-5 py-3 font-semibold">Booked By</th>
+              {canEdit && <th className="px-5 py-3 font-semibold">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
+                <td colSpan={canEdit ? 8 : 7} className="px-5 py-8 text-center text-gray-400">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && appointments.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-gray-400">
+                <td colSpan={canEdit ? 8 : 7} className="px-5 py-10 text-center text-gray-400">
                   No appointments match these filters.
                 </td>
               </tr>
@@ -171,7 +195,7 @@ export default function AppointmentsListPage() {
                 <td className="px-5 py-3 text-gray-700">{a.doctor_name}</td>
                 <td className="px-5 py-3 text-gray-700">
                   <p>{a.appointment_date}</p>
-                  <p className="text-xs text-gray-400 font-mono-num">{a.appointment_time}</p>
+                  <p className="text-xs text-gray-400 font-mono-num">{formatTime12h(a.appointment_time)}</p>
                 </td>
                 <td className="px-5 py-3">
                   <StatusBadge value={a.payment_status} />
@@ -180,6 +204,27 @@ export default function AppointmentsListPage() {
                   <StatusBadge value={a.status} />
                 </td>
                 <td className="px-5 py-3 text-gray-500 text-xs">{a.booked_by_name}</td>
+                {canEdit && (
+                  <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => router.push(`/dashboard/appointments/${a.id}/edit`)}
+                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-mist"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      {isSuperAdmin && (
+                        <button
+                          onClick={(e) => handleDelete(a, e)}
+                          disabled={deletingId === a.id}
+                          className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-crimson-50 hover:text-crimson-600 disabled:opacity-50"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

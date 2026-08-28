@@ -1,7 +1,10 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { requireSession } from '@/lib/auth';
-import { ok, fail, handleApiError } from '@/lib/http';
+import { handleApiError, fail } from '@/lib/http';
+import { generateReportPdf } from '@/lib/pdf';
+import { getClinicInfo } from '@/lib/clinic';
+import { appointmentSelect } from '@/lib/appointments-query';
 export async function GET(req: NextRequest) {
     try {
         const session = await requireSession();
@@ -9,20 +12,9 @@ export async function GET(req: NextRequest) {
         const sp = req.nextUrl.searchParams;
         const from = sp.get('from') || new Date().toISOString().slice(0, 10);
         const to = sp.get('to') || new Date().toISOString().slice(0, 10);
-        // Doctors only ever see reports scoped to their own appointments.
         const doctorScope = session.role === 'doctor';
-        if (doctorScope && !session.doctorId) {
-            return ok({
-                from,
-                to,
-                totals: { total_appointments: 0, total_collected: 0, total_billed: 0 },
-                byPaymentMethod: [],
-                byDoctor: [],
-                byUser: [],
-                byStatus: [],
-                byDay: []
-            });
-        }
+        if (doctorScope && !session.doctorId)
+            return fail('Not authorized.', 403);
         const doctorClause = doctorScope ? 'AND a.doctor_id = ?' : '';
         const doctorParam = doctorScope ? [session.doctorId] : [];
         const totals = await db
@@ -31,37 +23,51 @@ export async function GET(req: NextRequest) {
                 COALESCE(SUM(amount - discount), 0) AS total_billed
          FROM appointments a
          WHERE a.appointment_date BETWEEN ? AND ? AND a.status != 'cancelled' ${doctorClause}`)
-            .get(from, to, ...doctorParam);
+            .get(from, to, ...doctorParam) as any;
         const byPaymentMethod = await db
             .prepare(`SELECT payment_method, COUNT(*) AS count, COALESCE(SUM(paid_amount), 0) AS collected
          FROM appointments a
          WHERE a.appointment_date BETWEEN ? AND ? AND a.status != 'cancelled' ${doctorClause}
          GROUP BY payment_method`)
-            .all(from, to, ...doctorParam);
+            .all(from, to, ...doctorParam) as any[];
         const byDoctor = await db
             .prepare(`SELECT d.name AS doctor_name, COUNT(*) AS count, COALESCE(SUM(a.paid_amount), 0) AS collected
          FROM appointments a JOIN doctors d ON d.id = a.doctor_id
          WHERE a.appointment_date BETWEEN ? AND ? AND a.status != 'cancelled' ${doctorClause}
          GROUP BY a.doctor_id, d.name ORDER BY count DESC`)
-            .all(from, to, ...doctorParam);
+            .all(from, to, ...doctorParam) as any[];
         const byUser = await db
             .prepare(`SELECT u.name AS user_name, COUNT(*) AS count, COALESCE(SUM(a.paid_amount), 0) AS collected
          FROM appointments a JOIN users u ON u.id = a.booked_by_user_id
          WHERE a.appointment_date BETWEEN ? AND ? AND a.status != 'cancelled' ${doctorClause}
          GROUP BY a.booked_by_user_id, u.name ORDER BY count DESC`)
-            .all(from, to, ...doctorParam);
-        const byStatus = await db
-            .prepare(`SELECT status, COUNT(*) AS count FROM appointments a
-         WHERE a.appointment_date BETWEEN ? AND ? ${doctorClause}
-         GROUP BY status`)
-            .all(from, to, ...doctorParam);
-        const byDay = await db
-            .prepare(`SELECT a.appointment_date AS date, COUNT(*) AS count, COALESCE(SUM(a.paid_amount), 0) AS collected
-         FROM appointments a
-         WHERE a.appointment_date BETWEEN ? AND ? AND a.status != 'cancelled' ${doctorClause}
-         GROUP BY a.appointment_date ORDER BY a.appointment_date ASC`)
-            .all(from, to, ...doctorParam);
-        return ok({ from, to, totals, byPaymentMethod, byDoctor, byUser, byStatus, byDay });
+            .all(from, to, ...doctorParam) as any[];
+        const apptConditions = [`a.appointment_date >= ?`, `a.appointment_date <= ?`];
+        const apptValues: any[] = [from, to];
+        if (doctorScope) {
+            apptConditions.push('a.doctor_id = ?');
+            apptValues.push(session.doctorId);
+        }
+        const appointments = await db
+            .prepare(`${appointmentSelect()} WHERE ${apptConditions.join(' AND ')} ORDER BY a.appointment_date DESC, a.token_number ASC LIMIT 2000`)
+            .all(...apptValues) as any[];
+        const pdfBuffer = await generateReportPdf({
+            clinic: getClinicInfo(),
+            from,
+            to,
+            totals,
+            byPaymentMethod,
+            byDoctor,
+            byUser,
+            appointments
+        });
+        return new NextResponse(pdfBuffer, {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `inline; filename="KMC-Report-${from}-to-${to}.pdf"`
+            }
+        });
     }
     catch (err) {
         return handleApiError(err);

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, X, Pencil, Trash2, Stethoscope } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, Stethoscope, Clock } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { useSession } from '@/lib/session-context';
+import { formatTime12h as formatSlot } from '@/lib/format';
 
 type Doctor = {
   id: number;
@@ -14,11 +16,14 @@ type Doctor = {
   phone: string | null;
   description: string | null;
   active: number;
+  slots: string[];
 };
 
-const emptyForm = { name: '', specialization: '', department: '', fee: '', availability: 'Mon-Sat, 9:00 AM - 5:00 PM', phone: '', description: '' };
+const emptyForm = { name: '', specialization: '', department: '', fee: '', availability: 'Mon-Sat, 9:00 AM - 5:00 PM', phone: '', description: '', slots: [] as string[] };
 
 export default function DoctorsPage() {
+  const session = useSession();
+  const isSuperAdmin = session?.role === 'super_admin';
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,6 +31,7 @@ export default function DoctorsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [newSlot, setNewSlot] = useState('');
 
   async function load() {
     setLoading(true);
@@ -57,10 +63,23 @@ export default function DoctorsPage() {
       fee: String(d.fee),
       availability: d.availability,
       phone: d.phone || '',
-      description: d.description || ''
+      description: d.description || '',
+      slots: d.slots || []
     });
     setEditingId(d.id);
     setShowForm(true);
+  }
+
+  function addSlot() {
+    if (!newSlot) return;
+    if (!form.slots.includes(newSlot)) {
+      setForm({ ...form, slots: [...form.slots, newSlot].sort() });
+    }
+    setNewSlot('');
+  }
+
+  function removeSlot(t: string) {
+    setForm({ ...form, slots: form.slots.filter((s) => s !== t) });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -95,7 +114,16 @@ export default function DoctorsPage() {
   async function handleDelete(d: Doctor) {
     if (!confirm(`Remove ${d.name}? If they have existing appointments they will be deactivated instead.`)) return;
     try {
-      await api.delete(`/api/doctors/${d.id}`);
+      const res = await api.delete(`/api/doctors/${d.id}`);
+      if (res?.deactivated && isSuperAdmin) {
+        const wipe = confirm(
+          `${d.name} has existing appointment history, so they were deactivated instead. ` +
+          `Permanently delete them AND erase all of their appointment records instead? This cannot be undone.`
+        );
+        if (wipe) {
+          await api.delete(`/api/doctors/${d.id}?force=true`);
+        }
+      }
       load();
     } catch (err: any) {
       setError(err.message);
@@ -161,6 +189,34 @@ export default function DoctorsPage() {
               <input className="kmc-input font-mono-num" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </div>
             <div className="sm:col-span-2">
+              <label className="kmc-label">Appointment Time Slots</label>
+              <p className="text-xs text-gray-400 mb-2">
+                Define the exact times patients can be booked into. The booking form will only offer these times (skipping ones already taken that day) instead of a free-typed time.
+              </p>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {form.slots.length === 0 && <span className="text-xs text-gray-400">No slots added yet.</span>}
+                {form.slots.map((t) => (
+                  <span key={t} className="kmc-badge bg-navy-100 text-navy-800 flex items-center gap-1.5 pr-1.5">
+                    <Clock size={11} /> {formatSlot(t)}
+                    <button type="button" onClick={() => removeSlot(t)} className="hover:text-crimson-600">
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="time"
+                  className="kmc-input w-40"
+                  value={newSlot}
+                  onChange={(e) => setNewSlot(e.target.value)}
+                />
+                <button type="button" onClick={addSlot} className="kmc-btn-ghost">
+                  Add Slot
+                </button>
+              </div>
+            </div>
+            <div className="sm:col-span-2">
               <label className="kmc-label">Doctor Description (bio, qualifications, experience)</label>
               <textarea
                 className="kmc-input"
@@ -210,6 +266,9 @@ export default function DoctorsPage() {
               <p>Department: {d.department}</p>
               <p>Fee: Rs. {d.fee}</p>
               <p>Availability: {d.availability}</p>
+              <p>
+                Slots: {d.slots && d.slots.length > 0 ? d.slots.map(formatSlot).join(', ') : <span className="text-crimson-500">none set — booking will have no times to pick from</span>}
+              </p>
               {d.phone && <p>Phone: {d.phone}</p>}
               {d.description && (
                 <p className="text-gray-600 italic mt-1.5 border-t border-gray-100 pt-1.5">"{d.description}"</p>

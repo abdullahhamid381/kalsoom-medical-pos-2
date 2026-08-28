@@ -7,7 +7,13 @@ function getSecretKey() {
 }
 
 // Super admin only (clinic staff management etc.)
-const SUPER_ADMIN_ONLY = ['/dashboard/users', '/dashboard/doctors', '/dashboard/settings', '/dashboard/pharmacy/medicines', '/dashboard/lab/tests', '/dashboard/lab/panels', '/dashboard/lab/equipment', '/dashboard/ipd/rooms', '/dashboard/surgery/types'];
+const SUPER_ADMIN_ONLY = ['/dashboard/settings', '/dashboard/pharmacy/medicines', '/dashboard/lab/tests', '/dashboard/lab/panels', '/dashboard/lab/equipment', '/dashboard/ipd/rooms', '/dashboard/surgery/types'];
+
+// Doctors roster: super_admin manages everyone, receptionist_admin can also manage it (add/edit doctors + slots).
+const DOCTORS_ROLES = ['super_admin', 'receptionist_admin'];
+
+// Staff user management: super_admin manages everyone, receptionist_admin only manages receptionist logins (enforced in the API).
+const USERS_ROLES = ['super_admin', 'receptionist_admin'];
 
 const PHARMACY_ROLES = ['super_admin', 'pharmacy_admin', 'sales_person'];
 const CLINIC_ROLES   = ['super_admin', 'receptionist', 'doctor'];
@@ -21,6 +27,10 @@ const IPD_PATHS      = ['/dashboard/ipd'];
 const SURGERY_PATHS  = ['/dashboard/surgery'];
 
 const DOCTOR_BLOCKED = ['/dashboard/appointments/new', '/dashboard/patients'];
+
+// Receptionist Admin: scoped to appointment-desk features only - booking/managing
+// appointments, patients, the scan lookup, and its own receptionist-account management.
+const RECEPTIONIST_ADMIN_PATHS = ['/dashboard/appointments', '/dashboard/patients', '/dashboard/scan', '/dashboard/doctors', '/dashboard/users', '/dashboard/reports'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -61,6 +71,22 @@ export async function middleware(req: NextRequest) {
   // Super admin only paths
   if (role !== 'super_admin' && SUPER_ADMIN_ONLY.some(p => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
+
+  // Staff user management: super_admin + receptionist_admin only
+  if (!USERS_ROLES.includes(role) && pathname.startsWith('/dashboard/users')) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
+
+  // Doctors roster: super_admin + receptionist_admin only
+  if (!DOCTORS_ROLES.includes(role) && pathname.startsWith('/dashboard/doctors')) {
+    return NextResponse.redirect(new URL('/dashboard', req.url));
+  }
+
+  // Receptionist Admin only sees appointment-desk features (appointments, patients, scan, doctors, staff users)
+  if (role === 'receptionist_admin') {
+    const allowed = pathname === '/dashboard' || RECEPTIONIST_ADMIN_PATHS.some(p => pathname.startsWith(p));
+    if (!allowed) return NextResponse.redirect(new URL('/dashboard/appointments', req.url));
   }
 
   // Pharmacy staff (pharmacy_admin / sales_person) cannot access clinic appointment features

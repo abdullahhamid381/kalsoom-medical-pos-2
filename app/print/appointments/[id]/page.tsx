@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api-client';
+import { formatTime12h } from '@/lib/format';
 
 const PAY_LABELS: Record<string, string> = {
   cash: 'Cash',
@@ -119,7 +120,7 @@ export default function PrintReceiptPage() {
         <div><strong>Doctor:</strong> {appt.doctor_name}</div>
         <div><strong>Dept:</strong> {appt.department || appt.doctor_department}</div>
         <div><strong>Date:</strong> {appt.appointment_date}</div>
-        <div><strong>Time:</strong> {appt.appointment_time}</div>
+        <div><strong>Time:</strong> {formatTime12h(appt.appointment_time)}</div>
         {appt.reason && <div><strong>Reason:</strong> {appt.reason}</div>}
 
         <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
@@ -160,6 +161,10 @@ export default function PrintReceiptPage() {
         <div style={{ textAlign: 'center', fontSize: 9, color: '#444' }}>
           Please arrive 15 minutes early. Booked by {appt.booked_by_name}.
         </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ textAlign: 'center', fontSize: 8, color: '#888' }}>System powered by Krexen Technologies</div>
+        <div style={{ textAlign: 'center', fontSize: 8, color: '#888' }}>www.krexen.com</div>
       </div>
     </>
   );

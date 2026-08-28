@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Wallet, CalendarCheck2, TrendingDown, Download, Printer } from 'lucide-react';
+import { Wallet, CalendarCheck2, TrendingDown, Download, Printer, FileText } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { formatTime12h } from '@/lib/format';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
@@ -99,7 +100,14 @@ export default function ReportsPage() {
             disabled={loading || appointments.length === 0}
             className="kmc-btn-ghost flex items-center gap-2 text-sm"
           >
-            <Download size={15} /> Export CSV
+            <Download size={15} /> Export Excel (CSV)
+          </button>
+          <button
+            onClick={() => !loading && window.open(`/api/reports/pdf?from=${from}&to=${to}`, '_blank')}
+            disabled={loading}
+            className="kmc-btn-ghost flex items-center gap-2 text-sm"
+          >
+            <FileText size={15} /> Export PDF
           </button>
           <button onClick={() => window.print()} className="kmc-btn-ghost flex items-center gap-2 text-sm">
             <Printer size={15} /> Print
@@ -301,7 +309,7 @@ export default function ReportsPage() {
                   <td className="px-4 py-2.5 font-mono-num text-navy-800 whitespace-nowrap">{a.appointment_no}</td>
                   <td className="px-4 py-2.5 font-mono-num font-bold text-navy-600">#{a.token_number}</td>
                   <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{a.appointment_date}</td>
-                  <td className="px-4 py-2.5 font-mono-num text-gray-500">{a.appointment_time}</td>
+                  <td className="px-4 py-2.5 font-mono-num text-gray-500">{formatTime12h(a.appointment_time)}</td>
                   <td className="px-4 py-2.5 text-navy-900 font-medium whitespace-nowrap">{a.patient_name}</td>
                   <td className="px-4 py-2.5 font-mono-num text-gray-500">{a.patient_phone}</td>
                   <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{a.doctor_name}</td>

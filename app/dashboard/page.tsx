@@ -6,6 +6,7 @@ import { CalendarCheck2, Wallet, AlertCircle, XCircle, ArrowRight } from 'lucide
 import { api } from '@/lib/api-client';
 import StatusBadge from '@/components/StatusBadge';
 import { useSession } from '@/lib/session-context';
+import { formatTime12h } from '@/lib/format';
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
@@ -112,7 +113,7 @@ export default function OverviewPage() {
                     <p className="text-xs text-gray-400 font-mono-num">{a.patient_phone}</p>
                   </td>
                   {!isDoctor && <td className="px-5 py-3 text-gray-700">{a.doctor_name}</td>}
-                  <td className="px-5 py-3 font-mono-num text-gray-700">{a.appointment_time}</td>
+                  <td className="px-5 py-3 font-mono-num text-gray-700">{formatTime12h(a.appointment_time)}</td>
                   {/* Two status badges: appointment status + payment status */}
                   <td className="px-5 py-3">
                     <div className="flex flex-col gap-1">

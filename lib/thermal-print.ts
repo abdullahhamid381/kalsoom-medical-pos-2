@@ -1,3 +1,5 @@
+import { formatTime12h } from './format';
+
 /**
  * Prints a self-contained HTML string on a hidden iframe.
  * The user sees zero navigation — the print dialog appears directly.
@@ -65,6 +67,11 @@ const BASE_STYLE = `
 
 interface ClinicInfo { name: string; address: string; phone: string; }
 
+const POWERED_BY = `
+  <div class="dash"></div>
+  <div class="center small" style="opacity:.65">System powered by Krexen Technologies</div>
+  <div class="center small" style="opacity:.65">www.krexen.com</div>`;
+
 export function appointmentReceiptHtml(appt: any, clinic: ClinicInfo, barcodeDataUrl?: string): string {
   const PAY: Record<string,string> = { cash:'Cash', jazzcash:'JazzCash', easypaisa:'EasyPaisa', bank_transfer:'Bank Transfer', card:'Card' };
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${BASE_STYLE}</style></head><body>
@@ -84,7 +91,7 @@ export function appointmentReceiptHtml(appt: any, clinic: ClinicInfo, barcodeDat
   <div><span class="bold">Doctor:</span> ${esc(appt.doctor_name)}</div>
   <div><span class="bold">Dept:</span> ${esc(appt.department || appt.doctor_department || '—')}</div>
   <div><span class="bold">Date:</span> ${esc(appt.appointment_date)}</div>
-  <div><span class="bold">Time:</span> ${esc(appt.appointment_time)}</div>
+  <div><span class="bold">Time:</span> ${esc(formatTime12h(appt.appointment_time))}</div>
   ${appt.reason ? `<div><span class="bold">Reason:</span> ${esc(appt.reason)}</div>` : ''}
   <div class="dash"></div>
   <div class="row"><span>Method</span><span>${esc(PAY[appt.payment_method] || appt.payment_method)}</span></div>
@@ -95,6 +102,7 @@ export function appointmentReceiptHtml(appt: any, clinic: ClinicInfo, barcodeDat
   <div class="dash"></div>
   ${barcodeDataUrl ? `<img class="barcode" src="${barcodeDataUrl}" alt="barcode"/>` : ''}
   <div class="center small">Arrive 15 min early · Booked by ${esc(appt.booked_by_name)}</div>
+  ${POWERED_BY}
   </body></html>`;
 }
 
@@ -128,6 +136,7 @@ export function pharmacyReceiptHtml(sale: any, clinic: ClinicInfo, barcodeDataUr
   ${barcodeDataUrl ? `<img class="barcode" src="${barcodeDataUrl}" alt="barcode"/>` : ''}
   <div class="center small">${esc(sale.payment_status.toUpperCase())} · Served by ${esc(sale.sold_by_name)}</div>
   <div class="center small">Thank you for visiting ${esc(clinic.name)}!</div>
+  ${POWERED_BY}
   </body></html>`;
 }
 
@@ -164,6 +173,7 @@ export function labReceiptHtml(order: any, clinic: ClinicInfo, barcodeDataUrl?: 
   <div class="center small">${esc(order.order_no)}</div>
   <div class="center small">Present receipt to collect reports.</div>
   <div class="center small">Booked by ${esc(order.booked_by_name)}</div>
+  ${POWERED_BY}
   </body></html>`;
 }
 
@@ -214,6 +224,7 @@ export function admissionReceiptHtml(admission: any, charges: any[], clinic: Cli
   <div class="dash"></div>
   <div class="center small">${esc(admission.payment_status?.toUpperCase())} · Generated ${new Date().toLocaleDateString('en-PK')}</div>
   <div class="center small">Thank you for choosing ${esc(clinic.name)}</div>
+  ${POWERED_BY}
   </body></html>`;
 }
 
@@ -249,5 +260,6 @@ export function surgeryReceiptHtml(rec: any, clinic: ClinicInfo, barcodeDataUrl?
   ${barcodeDataUrl?`<img class="barcode" src="${barcodeDataUrl}" alt="barcode"/>`:''}
   <div class="center small">${esc(rec.surgery_no)} · ${esc(rec.payment_status?.toUpperCase())}</div>
   <div class="center small">Thank you for choosing ${esc(clinic.name)}</div>
+  ${POWERED_BY}
   </body></html>`;
 }

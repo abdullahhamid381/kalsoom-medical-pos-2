@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, X, Pencil, Trash2, ShieldCheck, UserCircle, Stethoscope, FlaskConical } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, ShieldCheck, UserCircle, Stethoscope, FlaskConical, Users as UsersIcon } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { useSession } from '@/lib/session-context';
 
 type StaffUser = {
   id: number;
   name: string;
   username: string;
-  role: 'super_admin' | 'receptionist' | 'doctor';
+  role: 'super_admin' | 'receptionist' | 'receptionist_admin' | 'doctor';
   doctor_id: number | null;
   doctor_name: string | null;
   active: number;
@@ -21,15 +22,16 @@ const emptyForm = {
   name: '',
   username: '',
   password: '',
-  role: 'receptionist' as 'super_admin' | 'receptionist' | 'doctor',
+  role: 'receptionist' as 'super_admin' | 'receptionist' | 'receptionist_admin' | 'doctor',
   doctor_id: '' as number | ''
 };
 
-const ROLE_LABELS = { super_admin: 'Super Admin', receptionist: 'Receptionist', doctor: 'Doctor', pharmacy_admin: 'Pharmacy Admin', sales_person: 'Sales Person', lab_technician: 'Lab Technician', ward_admin: 'Ward Admin', lab_senior_technologist: 'Lab Senior Technologist', lab_pathologist: 'Lab Pathologist' };
-const ROLE_ICONS: Record<string, any> = { super_admin: ShieldCheck, receptionist: UserCircle, doctor: Stethoscope, pharmacy_admin: FlaskConical, sales_person: UserCircle, lab_technician: UserCircle, ward_admin: UserCircle, lab_senior_technologist: FlaskConical, lab_pathologist: FlaskConical };
+const ROLE_LABELS = { super_admin: 'Super Admin', receptionist: 'Receptionist', receptionist_admin: 'Receptionist Admin', doctor: 'Doctor', pharmacy_admin: 'Pharmacy Admin', sales_person: 'Sales Person', lab_technician: 'Lab Technician', ward_admin: 'Ward Admin', lab_senior_technologist: 'Lab Senior Technologist', lab_pathologist: 'Lab Pathologist' };
+const ROLE_ICONS: Record<string, any> = { super_admin: ShieldCheck, receptionist: UserCircle, receptionist_admin: UsersIcon, doctor: Stethoscope, pharmacy_admin: FlaskConical, sales_person: UserCircle, lab_technician: UserCircle, ward_admin: UserCircle, lab_senior_technologist: FlaskConical, lab_pathologist: FlaskConical };
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-crimson-100 text-crimson-800',
   receptionist: 'bg-navy-100 text-navy-800',
+  receptionist_admin: 'bg-navy-200 text-navy-900',
   doctor: 'bg-sky-100 text-sky-800',
   pharmacy_admin: 'bg-purple-100 text-purple-800',
   sales_person: 'bg-emerald-100 text-emerald-800',
@@ -40,6 +42,8 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function UsersPage() {
+  const session = useSession();
+  const isReceptionistAdmin = session?.role === 'receptionist_admin';
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +72,7 @@ export default function UsersPage() {
   useEffect(() => { load(); }, []);
 
   function openCreate() {
-    setForm(emptyForm);
+    setForm(isReceptionistAdmin ? { ...emptyForm, role: 'receptionist' } : emptyForm);
     setEditingId(null);
     setShowForm(true);
   }
@@ -134,8 +138,9 @@ export default function UsersPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-navy-900">Staff Users</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Create receptionist accounts, admin access, and doctor portal logins. A doctor login is linked to one
-            doctor record — that doctor then sees only their own patient list and revenue.
+            {isReceptionistAdmin
+              ? 'Create and manage receptionist accounts.'
+              : 'Create receptionist accounts, admin access, and doctor portal logins. A doctor login is linked to one doctor record — that doctor then sees only their own patient list and revenue.'}
           </p>
         </div>
         <button onClick={openCreate} className="kmc-btn-accent flex items-center gap-2">
@@ -186,22 +191,26 @@ export default function UsersPage() {
             </div>
             <div>
               <label className="kmc-label">Role</label>
-              <select
-                className="kmc-input"
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value as any, doctor_id: '' })}
-              >
-                <option value="receptionist">Receptionist</option>
-                <option value="doctor">Doctor (portal login)</option>
-              <option value="pharmacy_admin">Pharmacy Admin (stock + sales + reports)</option>
-              <option value="sales_person">Sales Person (pharmacy sales only)</option>
-              <option value="lab_technician">Lab Technician (enters results)</option>
-              <option value="lab_senior_technologist">Lab Senior Technologist (reviews results)</option>
-              <option value="lab_pathologist">Lab Pathologist (signs off reports)</option>
-              <option value="ward_admin">Ward Admin (IPD admissions + rooms)</option>
-              <option value="sales_person">Sales Person (sales only)</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
+              {isReceptionistAdmin ? (
+                <input className="kmc-input" value="Receptionist" disabled />
+              ) : (
+                <select
+                  className="kmc-input"
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value as any, doctor_id: '' })}
+                >
+                  <option value="receptionist">Receptionist</option>
+                  <option value="receptionist_admin">Receptionist Admin (manages receptionists)</option>
+                  <option value="doctor">Doctor (portal login)</option>
+                <option value="pharmacy_admin">Pharmacy Admin (stock + sales + reports)</option>
+                <option value="sales_person">Sales Person (pharmacy sales only)</option>
+                <option value="lab_technician">Lab Technician (enters results)</option>
+                <option value="lab_senior_technologist">Lab Senior Technologist (reviews results)</option>
+                <option value="lab_pathologist">Lab Pathologist (signs off reports)</option>
+                <option value="ward_admin">Ward Admin (IPD admissions + rooms)</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              )}
             </div>
 
             {form.role === 'doctor' && (

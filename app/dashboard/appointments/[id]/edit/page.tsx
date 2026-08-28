@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Banknote, Smartphone, Landmark, CreditCard, Wallet } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import { formatTime12h as formatSlot } from '@/lib/format';
 
-type Doctor = { id: number; name: string; specialization: string; fee: number; active: number };
+type Doctor = { id: number; name: string; specialization: string; fee: number; active: number; slots: string[] };
 
 const PAYMENT_METHODS: { value: string; label: string; icon: any }[] = [
   { value: 'cash', label: 'Cash', icon: Banknote },
@@ -36,6 +37,10 @@ export default function EditAppointmentPage() {
   const [amount, setAmount] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
+  const [bookedTimes, setBookedTimes] = useState<Set<string>>(new Set());
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  const selectedDoctor = useMemo(() => doctors.find((d) => d.id === doctorId) || null, [doctors, doctorId]);
 
   useEffect(() => {
     async function load() {
@@ -65,6 +70,27 @@ export default function EditAppointmentPage() {
     }
     load();
   }, [id]);
+
+  useEffect(() => {
+    if (!doctorId || !appointmentDate) {
+      setBookedTimes(new Set());
+      return;
+    }
+    let active = true;
+    setLoadingSlots(true);
+    api
+      .get(`/api/appointments?doctor_id=${doctorId}&date=${appointmentDate}`)
+      .then((data) => {
+        if (!active) return;
+        const taken = (data.appointments || [])
+          .filter((a: any) => a.status !== 'cancelled' && String(a.id) !== String(id))
+          .map((a: any) => a.appointment_time);
+        setBookedTimes(new Set(taken));
+      })
+      .catch(() => { if (active) setBookedTimes(new Set()); })
+      .finally(() => { if (active) setLoadingSlots(false); });
+    return () => { active = false; };
+  }, [doctorId, appointmentDate, id]);
 
   const netPayable = Math.max(amount - discount, 0);
   const paymentStatus = paidAmount >= netPayable && netPayable > 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid';
@@ -129,9 +155,44 @@ export default function EditAppointmentPage() {
               <label className="kmc-label">Appointment Date</label>
               <input type="date" className="kmc-input" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="kmc-label">Appointment Time</label>
-              <input type="time" className="kmc-input" value={appointmentTime} onChange={(e) => setAppointmentTime(e.target.value)} />
+              {!selectedDoctor ? (
+                <p className="text-xs text-gray-400">Select a doctor to see available time slots.</p>
+              ) : loadingSlots ? (
+                <p className="text-xs text-gray-400">Loading slots...</p>
+              ) : selectedDoctor.slots.length === 0 ? (
+                <p className="text-xs text-crimson-600">
+                  This doctor has no time slots configured. Add slots on the Doctors page, or keep the existing time below.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {selectedDoctor.slots.map((t) => {
+                    const taken = bookedTimes.has(t);
+                    const active = appointmentTime === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={taken}
+                        onClick={() => setAppointmentTime(t)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          taken
+                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
+                            : active
+                            ? 'border-navy-700 bg-navy-700 text-white'
+                            : 'border-gray-200 text-gray-700 hover:bg-mist'
+                        }`}
+                      >
+                        {formatSlot(t)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {(!selectedDoctor || selectedDoctor.slots.length === 0) && (
+                <input type="time" className="kmc-input mt-2" value={appointmentTime} onChange={(e) => setAppointmentTime(e.target.value)} />
+              )}
             </div>
             <div>
               <label className="kmc-label">Department</label>

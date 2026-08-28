@@ -2,17 +2,19 @@ import { NextRequest } from 'next/server';
 import { getDb } from '@/lib/db';
 import { requireRole } from '@/lib/auth';
 import { ok, handleApiError } from '@/lib/http';
-
 export async function GET(req: NextRequest) {
-  try {
-    await requireRole('super_admin', 'lab_technician', 'lab_senior_technologist');
-    const db = getDb();
-    const status = req.nextUrl.searchParams.get('status');
-    const conds: string[] = [];
-    const vals: any[] = [];
-    if (status) { conds.push('hc.status = ?'); vals.push(status); }
-    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const collections = db.prepare(`
+    try {
+        await requireRole('super_admin', 'lab_technician', 'lab_senior_technologist');
+        const db = await getDb();
+        const status = req.nextUrl.searchParams.get('status');
+        const conds: string[] = [];
+        const vals: any[] = [];
+        if (status) {
+            conds.push('hc.status = ?');
+            vals.push(status);
+        }
+        const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+        const collections = await db.prepare(`
       SELECT hc.*, lo.order_no, lo.patient_name, lo.patient_phone, lo.priority, u.name AS collector_name
       FROM lab_home_collections hc
       JOIN lab_orders lo ON lo.id = hc.order_id
@@ -20,6 +22,9 @@ export async function GET(req: NextRequest) {
       ${where}
       ORDER BY (hc.scheduled_at IS NULL), hc.scheduled_at ASC, hc.created_at ASC
     `).all(...vals);
-    return ok({ collections });
-  } catch (err) { return handleApiError(err); }
+        return ok({ collections });
+    }
+    catch (err) {
+        return handleApiError(err);
+    }
 }

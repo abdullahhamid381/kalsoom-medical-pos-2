@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
+import { Db } from './db';
 
 // ---------------------------------------------------------------------------
 // Creates the first Super Admin account and a few sample doctors, but only
@@ -10,15 +10,15 @@ import bcrypt from 'bcryptjs';
 // and run a setup script" step available.
 // ---------------------------------------------------------------------------
 
-export function runSeed(db: Database.Database) {
+export async function runSeed(db: Db) {
   const adminUsername = (process.env.SUPER_ADMIN_USERNAME || 'admin').trim().toLowerCase();
   const adminName = process.env.SUPER_ADMIN_NAME || 'Kalsoom Admin';
   const adminPassword = process.env.SUPER_ADMIN_PASSWORD || 'Admin@12345';
 
-  const existingAdmin = db.prepare('SELECT id FROM users WHERE username = ?').get(adminUsername);
+  const existingAdmin = await db.prepare('SELECT id FROM users WHERE username = ?').get(adminUsername);
   if (!existingAdmin) {
     const hash = bcrypt.hashSync(adminPassword, 10);
-    db.prepare('INSERT INTO users (name, username, password_hash, role) VALUES (?, ?, ?, ?)').run(
+    await db.prepare('INSERT INTO users (name, username, password_hash, role) VALUES (?, ?, ?, ?)').run(
       adminName,
       adminUsername,
       hash,
@@ -27,7 +27,7 @@ export function runSeed(db: Database.Database) {
     console.log(`[kalsoom] Created super admin account "${adminUsername}". Change the password after first login.`);
   }
 
-  const doctorCount = (db.prepare('SELECT COUNT(*) AS c FROM doctors').get() as { c: number }).c;
+  const doctorCount = ((await db.prepare('SELECT COUNT(*) AS c FROM doctors').get()) as { c: number }).c;
   if (doctorCount === 0) {
     const sampleDoctors: [string, string, string, number, string][] = [
       ['Dr. Asad Mahmood', 'General Physician', 'General Medicine', 500, 'Mon-Sat, 9:00 AM - 2:00 PM'],
@@ -39,7 +39,7 @@ export function runSeed(db: Database.Database) {
     const insert = db.prepare(
       'INSERT INTO doctors (name, specialization, department, fee, availability) VALUES (?, ?, ?, ?, ?)'
     );
-    for (const d of sampleDoctors) insert.run(...d);
+    for (const d of sampleDoctors) await insert.run(...d);
     console.log(`[kalsoom] Added ${sampleDoctors.length} sample doctors (edit/remove from Dashboard > Doctors).`);
   }
 }

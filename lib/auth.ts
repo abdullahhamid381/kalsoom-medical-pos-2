@@ -14,7 +14,7 @@ export type SessionUser = {
   id: number;
   name: string;
   username: string;
-  role: 'super_admin' | 'receptionist' | 'doctor' | 'pharmacy_admin' | 'sales_person' | 'lab_technician' | 'ward_admin' | 'lab_senior_technologist' | 'lab_pathologist';
+  role: 'super_admin' | 'receptionist' | 'receptionist_admin' | 'doctor' | 'pharmacy_admin' | 'sales_person' | 'lab_technician' | 'ward_admin' | 'lab_senior_technologist' | 'lab_pathologist';
   doctorId?: number | null;
 };
 
@@ -58,7 +58,7 @@ export async function requireSession(): Promise<SessionUser> {
   return session;
 }
 
-export async function requireRole(...roles: Array<'super_admin' | 'receptionist' | 'doctor' | 'pharmacy_admin' | 'sales_person' | 'lab_technician' | 'ward_admin' | 'lab_senior_technologist' | 'lab_pathologist'>): Promise<SessionUser> {
+export async function requireRole(...roles: Array<'super_admin' | 'receptionist' | 'receptionist_admin' | 'doctor' | 'pharmacy_admin' | 'sales_person' | 'lab_technician' | 'ward_admin' | 'lab_senior_technologist' | 'lab_pathologist'>): Promise<SessionUser> {
   const session = await requireSession();
   if (!roles.includes(session.role)) {
     throw new AuthError('Not authorized', 403);

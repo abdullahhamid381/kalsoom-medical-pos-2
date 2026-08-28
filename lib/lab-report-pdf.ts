@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import type Database from 'better-sqlite3';
+import type { Db } from './db';
 import { generateBarcodePng } from './barcode';
 import { generateQrPng } from './qrcode';
 
@@ -54,14 +54,14 @@ function resultValue(item: LabReportItem): string {
 
 /** Loads everything generateLabReportPdf() needs for an order, straight from the db.
  *  Shared by the report PDF route and the report WhatsApp route so they never drift apart. */
-export function buildLabReportData(db: Database.Database, orderId: number, baseUrl: string, clinic: LabReportData['clinic']): LabReportData | null {
-  const order = db.prepare(
+export async function buildLabReportData(db: Db, orderId: number, baseUrl: string, clinic: LabReportData['clinic']): Promise<LabReportData | null> {
+  const order = (await db.prepare(
     `SELECT lo.*, u.name AS reported_by_name FROM lab_orders lo
      LEFT JOIN users u ON u.id = lo.reported_by_user_id WHERE lo.id = ?`
-  ).get(orderId) as any;
+  ).get(orderId)) as any;
   if (!order) return null;
 
-  const items = db.prepare(
+  const rawItems = (await db.prepare(
     `SELECT loi.id AS order_item_id, loi.test_name, lt.category, lt.is_culture, lop.panel_name,
             lr.value_type, lr.value_numeric, lr.value_text, lr.unit, lr.reference_display, lr.flag, lr.comment
      FROM lab_order_items loi
@@ -70,7 +70,43 @@ export function buildLabReportData(db: Database.Database, orderId: number, baseU
      LEFT JOIN lab_results lr ON lr.order_item_id = loi.id
      WHERE loi.order_id = ?
      ORDER BY loi.order_panel_id IS NULL DESC, loi.order_panel_id, loi.id`
-  ).all(orderId) as any[];
+  ).all(orderId)) as any[];
+
+  const items: LabReportItem[] = [];
+  for (const i of rawItems) {
+    let culture: LabReportItem['culture'];
+    if (i.is_culture) {
+      const organisms = (await db.prepare(
+        `SELECT co.id, co.growth_count, o.name AS organism_name FROM lab_culture_organisms co
+         JOIN lab_organisms o ON o.id = co.organism_id WHERE co.order_item_id = ?`
+      ).all(i.order_item_id)) as any[];
+      culture = [];
+      for (const org of organisms) {
+        const sensitivities = (await db.prepare(
+          `SELECT a.name AS antibiotic_name, cs.result FROM lab_culture_sensitivities cs
+           JOIN lab_antibiotics a ON a.id = cs.antibiotic_id WHERE cs.culture_organism_id = ?`
+        ).all(org.id)) as any[];
+        culture.push({
+          organism: org.organism_name,
+          growth_count: org.growth_count,
+          sensitivities: sensitivities.map((s) => ({ antibiotic: s.antibiotic_name, result: s.result }))
+        });
+      }
+    }
+    items.push({
+      test_name: i.test_name,
+      category: i.category,
+      panel_name: i.panel_name,
+      value_type: i.value_type || 'numeric',
+      value_numeric: i.value_numeric,
+      value_text: i.value_text,
+      unit: i.unit,
+      reference_display: i.reference_display,
+      flag: i.flag,
+      comment: i.comment,
+      culture
+    });
+  }
 
   return {
     clinic,
@@ -82,36 +118,7 @@ export function buildLabReportData(db: Database.Database, orderId: number, baseU
       referring_doctor: order.referring_doctor,
       created_at: order.created_at
     },
-    items: items.map((i) => {
-      let culture: LabReportItem['culture'];
-      if (i.is_culture) {
-        const organisms = db.prepare(
-          `SELECT co.id, co.growth_count, o.name AS organism_name FROM lab_culture_organisms co
-           JOIN lab_organisms o ON o.id = co.organism_id WHERE co.order_item_id = ?`
-        ).all(i.order_item_id) as any[];
-        culture = organisms.map((org) => ({
-          organism: org.organism_name,
-          growth_count: org.growth_count,
-          sensitivities: (db.prepare(
-            `SELECT a.name AS antibiotic_name, cs.result FROM lab_culture_sensitivities cs
-             JOIN lab_antibiotics a ON a.id = cs.antibiotic_id WHERE cs.culture_organism_id = ?`
-          ).all(org.id) as any[]).map((s) => ({ antibiotic: s.antibiotic_name, result: s.result }))
-        }));
-      }
-      return {
-        test_name: i.test_name,
-        category: i.category,
-        panel_name: i.panel_name,
-        value_type: i.value_type || 'numeric',
-        value_numeric: i.value_numeric,
-        value_text: i.value_text,
-        unit: i.unit,
-        reference_display: i.reference_display,
-        flag: i.flag,
-        comment: i.comment,
-        culture
-      };
-    }),
+    items,
     reportedBy: order.reported_by_name || null,
     reportedAt: order.reported_at,
     qrUrl: order.verification_token ? `${baseUrl}/verify/lab/${order.verification_token}` : `${baseUrl}/print/lab/reports/${orderId}`
@@ -239,6 +246,9 @@ export async function generateLabReportPdf(data: LabReportData): Promise<Buffer>
     }
     doc.font('Helvetica').fontSize(6.5).fillColor('#9aa6ba')
       .text('Computer generated report. Results should be interpreted in correlation with clinical findings.', 24, y, { width: W - 48, align: 'center' });
+    y += 12;
+    doc.font('Helvetica').fontSize(6.5).fillColor('#9aa6ba')
+      .text('System powered by Krexen Technologies · www.krexen.com', 24, y, { width: W - 48, align: 'center' });
 
     doc.end();
   });

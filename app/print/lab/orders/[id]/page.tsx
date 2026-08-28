@@ -102,6 +102,10 @@ export default function PrintLabReceiptPage() {
           Status: {order.status.toUpperCase()} | Booked by: {order.booked_by_name}<br/>
           Collect reports with this receipt. Thank you!
         </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ textAlign: 'center', fontSize: 8, color: '#888' }}>System powered by Krexen Technologies</div>
+        <div style={{ textAlign: 'center', fontSize: 8, color: '#888' }}>www.krexen.com</div>
       </div>
     </>
   );

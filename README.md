@@ -6,7 +6,7 @@ A complete receptionist desk / appointment booking system for Kalsoom Medical Co
 
 ## What's inside
 
-- **Permanent data storage**: a real SQLite database file at `data/kalsoom.db`. Nothing is in-memory or temporary — appointments, patients, doctors and users persist across restarts, deployments, and reboots. Back this single file up regularly.
+- **Permanent data storage**: a Postgres database (e.g. [Neon](https://neon.tech)), connected via `DATABASE_URL`. Nothing is in-memory or temporary — appointments, patients, doctors and users persist across restarts, deployments, and reboots. A managed Postgres provider handles backups for you.
 - **Roles**: only the clinic owner runs the one-time seed script to create the first **Super Admin**. The Super Admin then creates **Receptionist** accounts from inside the app. Every appointment records exactly which logged-in user booked it.
 - **Booking flow**: search an existing patient or register a new one inline, pick a doctor (fee auto-fills), set date/time, record payment method + amount + discount + amount paid, and the system computes Paid / Partial / Unpaid automatically.
 - **PDF slip + barcode**: every appointment gets a navy-and-crimson branded PDF (`lib/pdf.ts`) with full patient/doctor details and a Code128 barcode of its unique appointment number — downloadable any time from the appointment page.
@@ -27,11 +27,12 @@ npm install
 
 # 2. Create your environment file
 cp .env.example .env
-# Open .env and at minimum change JWT_SECRET to a long random string.
+# Open .env and at minimum set DATABASE_URL to your Postgres connection
+# string (e.g. from Neon), and change JWT_SECRET to a long random string.
 # Review SUPER_ADMIN_USERNAME / SUPER_ADMIN_PASSWORD - this becomes your
 # first login. You can change the password later from inside the app.
 
-# 3. Create the database and the first Super Admin account
+# 3. Create the database tables and the first Super Admin account
 npm run seed
 
 # 4. Start the app
@@ -72,25 +73,25 @@ If you'd rather not deal with WhatsApp automation at all, just leave `WHATSAPP_E
 
 ## Deploying to Railway
 
-This app is built to run as a normal persistent server, so it's a good fit for [Railway](https://railway.app) — unlike serverless platforms (e.g. Vercel), Railway keeps your container running and supports a real attached disk ("Volume"), so the SQLite database and the WhatsApp login session both genuinely persist across redeploys.
+This app is built to run as a normal persistent server, so it's a good fit for [Railway](https://railway.app) — unlike serverless platforms (e.g. Vercel), Railway keeps your container running, which the WhatsApp login session needs (it still benefits from a persistent disk even though the database itself is now external Postgres).
 
 1. **Create a new Railway project** from this repository (push it to GitHub first, then "New Project → Deploy from GitHub repo" in Railway). Railway will detect the included `Dockerfile` and build from it automatically — this also makes sure Chromium's system dependencies are installed correctly for WhatsApp automation.
-2. **Add a Volume** to the service (Railway dashboard → your service → "Volumes" → "Add Volume") and mount it at `/data`.
-3. **Set environment variables** on the service (same names as `.env.example`), with these two pointed at the volume:
+2. **Add a Volume** to the service (Railway dashboard → your service → "Volumes" → "Add Volume") and mount it at `/data`, so the WhatsApp login session survives redeploys.
+3. **Set environment variables** on the service (same names as `.env.example`):
    ```
-   DATABASE_PATH=/data/kalsoom.db
+   DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
    WWEBJS_DATA_PATH=/data/.wwebjs_auth
    ```
-   Also set `JWT_SECRET`, `SUPER_ADMIN_NAME`, `SUPER_ADMIN_USERNAME`, `SUPER_ADMIN_PASSWORD`, the `CLINIC_*` values, and `WHATSAPP_ENABLED`.
-4. **Deploy.** On first boot, the app automatically creates the database tables, the Super Admin account, and sample doctors — there's no separate setup command to run on Railway, since a volume is only available once the container is actually running, not during the build step.
+   `DATABASE_URL` can point at Neon, Railway's own Postgres plugin, Supabase, or any standard Postgres. Also set `JWT_SECRET`, `SUPER_ADMIN_NAME`, `SUPER_ADMIN_USERNAME`, `SUPER_ADMIN_PASSWORD`, the `CLINIC_*` values, and `WHATSAPP_ENABLED`.
+4. **Deploy.** On first boot, the app automatically creates the database tables, the Super Admin account, and sample doctors — there's no separate setup command to run.
 5. Open the `*.up.railway.app` URL Railway gives you and log in with your `SUPER_ADMIN_USERNAME` / `SUPER_ADMIN_PASSWORD`.
 6. For WhatsApp: log in as Super Admin, go to **Settings**, click **Connect WhatsApp**, and scan the QR code. Because the session now lives on the volume, it survives future redeploys — you won't need to re-scan unless you explicitly disconnect or delete the volume.
 
-A couple of things worth knowing about this setup: volumes don't support multiple replicas, so keep this service scaled to one instance (entirely fine for a single clinic's front desk); and redeploying a volume-backed service causes a brief moment of downtime by design, to avoid two instances writing to the same database file at once.
+Since the database is external Postgres (not a local file), this service can safely run multiple instances/replicas if you ever need to — unlike the old single-file-on-a-volume setup.
 
 ## Backing up your data
 
-Everything that matters lives in one file: the path set by `DATABASE_PATH` in `.env` (default `./data/kalsoom.db`). Copy this file somewhere safe on a regular schedule (a daily copy to a USB drive or cloud folder is enough for a single-clinic deployment). If you ever move the app to a new computer, just copy this file into the new install's `data/` folder before running it.
+Your data lives in whatever Postgres provider `DATABASE_URL` points at. Most providers (Neon included) take automatic backups/point-in-time recovery — check your provider's dashboard. If you want your own manual backup, run `pg_dump "$DATABASE_URL" > backup.sql` from any machine with `pg_dump` installed.
 
 ## Project structure
 
@@ -100,21 +101,20 @@ app/
   dashboard/            All logged-in pages (overview, booking, lists, detail views, settings)
   login/                Login page
 lib/
-  db.ts                 SQLite connection + helpers (appointment numbers, token numbers)
-  schema.sql             Database schema (tables created on first run, never dropped)
+  db.ts                 Postgres connection (pg) + helpers (appointment numbers, token numbers)
+  schema.pg.sql           Database schema (tables created on first run, never dropped)
   auth.ts                Password hashing + session/JWT handling
   pdf.ts                 PDF appointment slip generator
   barcode.ts             Barcode (Code128) generator
   whatsapp.ts             WhatsApp Web automation + manual share-link builder
   clinic.ts               Reads clinic name/address/phone from .env
 components/              Shared UI (sidebar, topbar, patient search, status badges)
-scripts/seed.js           One-time setup script (creates DB, super admin, sample doctors)
-data/                     Where kalsoom.db lives once you run the seed script (not included in this zip)
+scripts/seed.js           One-time setup script (creates tables, super admin, sample doctors)
 ```
 
 ## Troubleshooting
 
-- **"Could not locate the bindings file" / better-sqlite3 errors on `npm install`**: this means your machine couldn't compile the native SQLite module. Make sure you have internet access during install and, on Linux, that build tools are available (`sudo apt install build-essential python3` on Debian/Ubuntu). On Windows, installing Node.js normally is usually enough; if it still fails, install the "Desktop development with C++" workload via Visual Studio Build Tools.
-- **`error C1189: #error: "C++20 or later required."` while installing on Windows with a very new Node.js version (e.g. Node 23/24)**: this project already pins a `better-sqlite3` version with prebuilt binaries for current Node releases, so a normal `npm install` should download a binary and skip compiling entirely. If you still hit this, delete the `node_modules` folder and `package-lock.json` completely (close any editor/terminal that might be holding files open first, since Windows can fail to clean up native-module folders otherwise), then run `npm install` again. As a reliable fallback, installing the Node.js 20 LTS release alongside your current version (e.g. with [nvm-windows](https://github.com/coreybutler/nvm-windows)) and running this project under Node 20 avoids this class of issue entirely, since prebuilt binaries for LTS releases are always published first.
+- **"DATABASE_URL is not set" on startup**: add your Postgres connection string to `.env` as `DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require`. Neon, Railway's Postgres plugin, and Supabase all give you this string directly in their dashboard.
+- **Connection errors on startup (`ECONNREFUSED`, SSL errors)**: double check `DATABASE_URL` — most managed Postgres providers require `?sslmode=require` in the connection string, and the host/port must be reachable from the machine running the app.
 - **WhatsApp QR code never appears / Chromium download fails**: this needs internet access on the server machine the first time you `npm install`. If your network blocks it, automatic WhatsApp sending just won't be available — the manual "Open WhatsApp Chat" link still works for every appointment regardless.
-- **Forgot the Super Admin password**: stop the server, edit `SUPER_ADMIN_PASSWORD` in `.env` to a new value, delete that admin's row from the `users` table via a SQLite browser tool (or just create a new admin user directly in the database), then run `npm run seed` again — or simpler, log in with another super admin account and reset the password from **Staff Users**.
+- **Forgot the Super Admin password**: stop the server, edit `SUPER_ADMIN_PASSWORD` in `.env` to a new value, delete that admin's row from the `users` table (via your Postgres provider's SQL console, or any Postgres client), then run `npm run seed` again — or simpler, log in with another super admin account and reset the password from **Staff Users**.

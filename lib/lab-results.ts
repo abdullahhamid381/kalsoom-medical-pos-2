@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { Db } from './db';
 
 export type RefRange = {
   id: number;
@@ -18,22 +18,22 @@ export type RefRange = {
 
 /** Picks the best-matching reference range for a test given the patient's age/gender.
  *  Gender-specific rows outrank 'any'; among ties, the narrower age band wins. */
-export function resolveReferenceRange(
-  db: Database.Database,
+export async function resolveReferenceRange(
+  db: Db,
   testId: number,
   ageYears: number | null,
   gender: string | null
-): RefRange | null {
+): Promise<RefRange | null> {
   const g = (gender || 'any').toLowerCase();
   const age = ageYears ?? 30; // sensible adult default when patient age is unknown
-  const range = db
+  const range = (await db
     .prepare(
       `SELECT * FROM lab_test_reference_ranges
        WHERE test_id = ? AND age_min <= ? AND age_max >= ? AND (gender = ? OR gender = 'any')
        ORDER BY (gender != 'any') ASC, (age_max - age_min) ASC
        LIMIT 1`
     )
-    .get(testId, age, age, g) as RefRange | undefined;
+    .get(testId, age, age, g)) as RefRange | undefined;
   return range || null;
 }
 
