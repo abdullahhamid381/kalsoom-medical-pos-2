@@ -59,17 +59,18 @@ export function printThermal(html: string): void {
 const FONT = `Arial, Helvetica, sans-serif`;
 const BASE_STYLE = `
   @page { size: 80mm auto; margin: 3mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { width: 80mm; max-width: 80mm; font-family: ${FONT}; font-size: 12.5px; font-weight: 600; color: #000; line-height: 1.55; padding: 4mm; -webkit-font-smoothing: none; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-weight: 700 !important; }
+  body { width: 80mm; max-width: 80mm; font-family: ${FONT}; font-size: 12.5px; color: #000; line-height: 1.55; padding: 4mm; -webkit-font-smoothing: none; }
   .center { text-align: center; }
-  .bold { font-weight: 800; }
+  .bold { font-weight: 900 !important; }
   .row { display: flex; justify-content: space-between; }
-  .dash { border-top: 1.5px dashed #000; margin: 5px 0; }
+  .dash { border-top: 2px dashed #000; margin: 5px 0; }
   .small { font-size: 10.5px; }
-  .title { font-size: 14px; font-weight: 800; }
+  .title { font-size: 14px; font-weight: 900 !important; }
   img.barcode { display: block; max-width: 100%; height: 42px; margin: 4px auto; }
   @media print {
-    * { color: #000 !important; opacity: 1 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    * { color: #000 !important; opacity: 1 !important; font-weight: 700 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bold, .title { font-weight: 900 !important; }
   }
 `;
 

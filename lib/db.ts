@@ -176,20 +176,11 @@ export async function nextAppointmentNo(db: Db, dateStr: string): Promise<string
 }
 
 /**
- * Token number for a doctor's appointment. When the doctor has fixed time slots configured,
- * the token is that slot's fixed position in the doctor's ordered schedule (e.g. the 9:00 slot
- * is always token #1, 9:15 is always #2) - same every day, so the token printed on the slip
- * matches the patient's place in the doctor's actual queue order, not just booking order.
- * Falls back to a plain daily booking-order counter for doctors with no slots configured yet.
+ * Token number for a doctor's queue on a given day: Token #1, Token #2, Token #3... in the
+ * order patients are booked, resetting each day. This is a pure queue-number system - it has
+ * nothing to do with a scheduled time, so it stays correct no matter how many bookings come in.
  */
-export async function nextTokenNumber(db: Db, doctorId: number, dateStr: string, appointmentTime?: string): Promise<number> {
-  if (appointmentTime) {
-    const slots = (await db
-      .prepare(`SELECT slot_time FROM doctor_slots WHERE doctor_id = ? ORDER BY slot_time ASC`)
-      .all(doctorId)) as { slot_time: string }[];
-    const idx = slots.findIndex((s) => s.slot_time === appointmentTime);
-    if (idx !== -1) return idx + 1;
-  }
+export async function nextTokenNumber(db: Db, doctorId: number, dateStr: string): Promise<number> {
   const row = (await db
     .prepare(`SELECT COUNT(*) AS c FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND status != 'cancelled'`)
     .get(doctorId, dateStr)) as { c: number };

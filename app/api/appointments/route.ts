@@ -104,20 +104,13 @@ export async function POST(req: NextRequest) {
         if (!doctor)
             return fail('Selected doctor was not found or is inactive.');
         const appointment_date = String(body.appointment_date || '').trim();
-        const appointment_time = String(body.appointment_time || '').trim();
-        if (!appointment_date || !appointment_time)
-            return fail('Appointment date and time are required.');
-        const doctorSlots = await db.prepare(`SELECT slot_time FROM doctor_slots WHERE doctor_id = ?`).all(doctor.id) as {
-            slot_time: string;
-        }[];
-        if (doctorSlots.length > 0 && !doctorSlots.some((s) => s.slot_time === appointment_time)) {
-            return fail('That time is not one of this doctor\'s available slots.');
-        }
-        const clash = await db
-            .prepare(`SELECT id FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status != 'cancelled'`)
-            .get(doctor.id, appointment_date, appointment_time);
-        if (clash)
-            return fail('That slot was just booked by someone else - please pick another time.');
+        if (!appointment_date)
+            return fail('Appointment date is required.');
+        // Pure token/queue system - the exact time isn't chosen by staff, it's just a
+        // timestamp of when the token was issued (still stored since it's useful for
+        // sorting/records, but it plays no role in booking logic or slot validation).
+        const now = new Date();
+        const appointment_time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         const payment_method = PAYMENT_METHODS.includes(body.payment_method) ? body.payment_method : 'cash';
         const amount = Number(body.amount ?? doctor.fee ?? 0);
         const discount = Number(body.discount ?? 0);
@@ -128,7 +121,7 @@ export async function POST(req: NextRequest) {
                 ? 'partial'
                 : 'unpaid';
         const appointment_no = await nextAppointmentNo(db, appointment_date);
-        const token_number = await nextTokenNumber(db, doctor.id, appointment_date, appointment_time);
+        const token_number = await nextTokenNumber(db, doctor.id, appointment_date);
         const result = await db
             .prepare(`INSERT INTO appointments
           (appointment_no, token_number, patient_id, doctor_id, booked_by_user_id, appointment_date, appointment_time,

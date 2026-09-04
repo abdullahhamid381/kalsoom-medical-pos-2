@@ -68,21 +68,11 @@ export async function PUT(req: NextRequest, { params }: {
             values.push(doctor.id);
         }
         const appointmentDate = typeof body.appointment_date === 'string' ? body.appointment_date : existing.appointment_date;
-        const appointmentTime = typeof body.appointment_time === 'string' ? body.appointment_time : existing.appointment_time;
-        const scheduleChanged = doctorId !== existing.doctor_id || appointmentDate !== existing.appointment_date || appointmentTime !== existing.appointment_time;
-        if (scheduleChanged) {
-            const doctorSlots = await db.prepare(`SELECT slot_time FROM doctor_slots WHERE doctor_id = ?`).all(doctorId) as {
-                slot_time: string;
-            }[];
-            if (doctorSlots.length > 0 && !doctorSlots.some((s) => s.slot_time === appointmentTime)) {
-                return fail('That time is not one of this doctor\'s available slots.');
-            }
-            const clash = await db
-                .prepare(`SELECT id FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status != 'cancelled' AND id != ?`)
-                .get(doctorId, appointmentDate, appointmentTime, id);
-            if (clash)
-                return fail('That slot was just booked by someone else - please pick another time.');
-            const token_number = await nextTokenNumber(db, doctorId, appointmentDate, appointmentTime);
+        // Moving to a different doctor or a different day re-queues the patient - they get a
+        // fresh token for that doctor's queue on that day (pure token/queue system, no time slots).
+        const queueChanged = doctorId !== existing.doctor_id || appointmentDate !== existing.appointment_date;
+        if (queueChanged) {
+            const token_number = await nextTokenNumber(db, doctorId, appointmentDate);
             updates.push('token_number = ?');
             values.push(token_number);
         }

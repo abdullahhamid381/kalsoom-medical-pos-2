@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Banknote, Smartphone, Landmark, CreditCard, Wallet, UserPlus, Search } from 'lucide-react';
+import { Banknote, Smartphone, Landmark, CreditCard, Wallet, UserPlus, Search, Ticket } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import PatientSearch, { Patient } from '@/components/PatientSearch';
-import { formatTime12h as formatSlot } from '@/lib/format';
 
 type Doctor = {
   id: number;
@@ -14,7 +13,6 @@ type Doctor = {
   department: string;
   fee: number;
   active: number;
-  slots: string[];
 };
 
 const PAYMENT_METHODS: { value: string; label: string; icon: any }[] = [
@@ -48,9 +46,8 @@ export default function NewAppointmentPage() {
   const [loadingDoctors, setLoadingDoctors] = useState(true);
 
   const [appointmentDate, setAppointmentDate] = useState(todayStr());
-  const [appointmentTime, setAppointmentTime] = useState('');
-  const [bookedTimes, setBookedTimes] = useState<Set<string>>(new Set());
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [nextToken, setNextToken] = useState<number | null>(null);
+  const [loadingToken, setLoadingToken] = useState(false);
   const [department, setDepartment] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -82,24 +79,19 @@ export default function NewAppointmentPage() {
   }, [selectedDoctor]);
 
   useEffect(() => {
-    setAppointmentTime('');
-    if (!doctorId || !appointmentDate) {
-      setBookedTimes(new Set());
-      return;
-    }
+    setNextToken(null);
+    if (!doctorId || !appointmentDate) return;
     let active = true;
-    setLoadingSlots(true);
+    setLoadingToken(true);
     api
       .get(`/api/appointments?doctor_id=${doctorId}&date=${appointmentDate}`)
       .then((data) => {
         if (!active) return;
-        const taken = (data.appointments || [])
-          .filter((a: any) => a.status !== 'cancelled')
-          .map((a: any) => a.appointment_time);
-        setBookedTimes(new Set(taken));
+        const count = (data.appointments || []).filter((a: any) => a.status !== 'cancelled').length;
+        setNextToken(count + 1);
       })
-      .catch(() => { if (active) setBookedTimes(new Set()); })
-      .finally(() => { if (active) setLoadingSlots(false); });
+      .catch(() => { if (active) setNextToken(null); })
+      .finally(() => { if (active) setLoadingToken(false); });
     return () => { active = false; };
   }, [doctorId, appointmentDate]);
 
@@ -126,8 +118,8 @@ export default function NewAppointmentPage() {
       setError('Please select a doctor.');
       return;
     }
-    if (!appointmentDate || !appointmentTime) {
-      setError('Please choose an appointment date and time.');
+    if (!appointmentDate) {
+      setError('Please choose an appointment date.');
       return;
     }
 
@@ -136,7 +128,6 @@ export default function NewAppointmentPage() {
       const payload: any = {
         doctor_id: doctorId,
         appointment_date: appointmentDate,
-        appointment_time: appointmentTime,
         department,
         reason,
         notes,
@@ -298,38 +289,17 @@ export default function NewAppointmentPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="kmc-label">Appointment Time *</label>
-              {!selectedDoctor ? (
-                <p className="text-xs text-gray-400">Select a doctor to see available time slots.</p>
-              ) : loadingSlots ? (
-                <p className="text-xs text-gray-400">Loading slots...</p>
-              ) : selectedDoctor.slots.length === 0 ? (
-                <p className="text-xs text-crimson-600">
-                  This doctor has no time slots configured yet. Add slots on the Doctors page before booking.
-                </p>
+              <label className="kmc-label">Queue Token</label>
+              {!doctorId ? (
+                <p className="text-xs text-gray-400">Select a doctor and date to see the next token number.</p>
+              ) : loadingToken ? (
+                <p className="text-xs text-gray-400">Checking queue...</p>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {selectedDoctor.slots.map((t) => {
-                    const taken = bookedTimes.has(t);
-                    const active = appointmentTime === t;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        disabled={taken}
-                        onClick={() => setAppointmentTime(t)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                          taken
-                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
-                            : active
-                            ? 'border-navy-700 bg-navy-700 text-white'
-                            : 'border-gray-200 text-gray-700 hover:bg-mist'
-                        }`}
-                      >
-                        {formatSlot(t)}
-                      </button>
-                    );
-                  })}
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-navy-100 bg-navy-50 w-fit">
+                  <Ticket size={16} className="text-navy-600" />
+                  <span className="text-sm text-navy-700">
+                    This patient will get <span className="font-bold text-navy-900">Token #{nextToken ?? '—'}</span> for {selectedDoctor?.name} on {appointmentDate}
+                  </span>
                 </div>
               )}
             </div>

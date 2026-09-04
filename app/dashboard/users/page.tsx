@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, X, Pencil, Trash2, ShieldCheck, UserCircle, Stethoscope, FlaskConical, Users as UsersIcon } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, ShieldCheck, UserCircle, Stethoscope, FlaskConical, Users as UsersIcon, Eye, EyeOff, Key } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useSession } from '@/lib/session-context';
 
@@ -52,6 +52,11 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetPwUser, setResetPwUser] = useState<StaffUser | null>(null);
+  const [resetPwValue, setResetPwValue] = useState('');
+  const [resetPwShow, setResetPwShow] = useState(false);
+  const [resetPwSaving, setResetPwSaving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -74,6 +79,8 @@ export default function UsersPage() {
   function openCreate() {
     setForm(isReceptionistAdmin ? { ...emptyForm, role: 'receptionist' } : emptyForm);
     setEditingId(null);
+    setShowPassword(false);
+    setResetPwUser(null);
     setShowForm(true);
   }
 
@@ -86,6 +93,8 @@ export default function UsersPage() {
       doctor_id: u.doctor_id ?? ''
     });
     setEditingId(u.id);
+    setShowPassword(false);
+    setResetPwUser(null);
     setShowForm(true);
   }
 
@@ -129,6 +138,29 @@ export default function UsersPage() {
       load();
     } catch (err: any) {
       setError(err.message);
+    }
+  }
+
+  function openResetPassword(u: StaffUser) {
+    setResetPwUser(u);
+    setResetPwValue('');
+    setResetPwShow(false);
+    setShowForm(false);
+    setError('');
+  }
+
+  async function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resetPwUser) return;
+    setResetPwSaving(true);
+    setError('');
+    try {
+      await api.put(`/api/users/${resetPwUser.id}`, { password: resetPwValue });
+      setResetPwUser(null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResetPwSaving(false);
     }
   }
 
@@ -180,14 +212,26 @@ export default function UsersPage() {
             </div>
             <div>
               <label className="kmc-label">{editingId ? 'New Password (leave blank to keep)' : 'Password *'}</label>
-              <input
-                type="password"
-                className="kmc-input"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required={!editingId}
-                minLength={6}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="kmc-input pr-10"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  required={!editingId}
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  tabIndex={-1}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-700"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="kmc-label">Role</label>
@@ -242,6 +286,52 @@ export default function UsersPage() {
               </button>
               <button type="submit" disabled={saving} className="kmc-btn-primary">
                 {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add User'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {resetPwUser && (
+        <div className="kmc-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-semibold text-navy-900">Reset Password — {resetPwUser.name}</h2>
+            <button onClick={() => setResetPwUser(null)} className="text-gray-400 hover:text-crimson-600">
+              <X size={18} />
+            </button>
+          </div>
+          <form onSubmit={handleResetPassword} className="space-y-4 max-w-sm">
+            <div>
+              <label className="kmc-label">New Password *</label>
+              <div className="relative">
+                <input
+                  type={resetPwShow ? 'text' : 'password'}
+                  className="kmc-input pr-10"
+                  value={resetPwValue}
+                  onChange={(e) => setResetPwValue(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setResetPwShow((s) => !s)}
+                  tabIndex={-1}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-700"
+                  aria-label={resetPwShow ? 'Hide password' : 'Show password'}
+                >
+                  {resetPwShow ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">At least 6 characters. Share this with {resetPwUser.name} directly — it won't be shown again.</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setResetPwUser(null)} className="kmc-btn-ghost">
+                Cancel
+              </button>
+              <button type="submit" disabled={resetPwSaving} className="kmc-btn-primary">
+                {resetPwSaving ? 'Saving...' : 'Set Password'}
               </button>
             </div>
           </form>
@@ -306,8 +396,16 @@ export default function UsersPage() {
                       <button
                         onClick={() => openEdit(u)}
                         className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-mist"
+                        title="Edit user"
                       >
                         <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => openResetPassword(u)}
+                        className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-mist"
+                        title="Reset password"
+                      >
+                        <Key size={14} />
                       </button>
                       <button
                         onClick={() => toggleActive(u)}

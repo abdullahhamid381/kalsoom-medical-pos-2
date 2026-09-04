@@ -30,7 +30,7 @@ export default function PrintPharmacyReceiptPage() {
     <>
       <style>{`
         @page { size: 80mm auto; margin: 3mm; }
-        @media print { .no-print { display: none !important; } html, body { background: #fff; } * { color:#000 !important; opacity:1 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+        @media print { .no-print { display: none !important; } html, body { background: #fff; } * { color:#000 !important; opacity:1 !important; font-weight:700 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
         * { box-sizing: border-box; } body { margin: 0; }
       `}</style>
 

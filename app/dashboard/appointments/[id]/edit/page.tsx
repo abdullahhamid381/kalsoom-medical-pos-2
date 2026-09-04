@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Banknote, Smartphone, Landmark, CreditCard, Wallet } from 'lucide-react';
+import { ArrowLeft, Banknote, Smartphone, Landmark, CreditCard, Wallet, Ticket } from 'lucide-react';
 import { api } from '@/lib/api-client';
-import { formatTime12h as formatSlot } from '@/lib/format';
 
-type Doctor = { id: number; name: string; specialization: string; fee: number; active: number; slots: string[] };
+type Doctor = { id: number; name: string; specialization: string; fee: number; active: number };
 
 const PAYMENT_METHODS: { value: string; label: string; icon: any }[] = [
   { value: 'cash', label: 'Cash', icon: Banknote },
@@ -29,7 +28,6 @@ export default function EditAppointmentPage() {
 
   const [doctorId, setDoctorId] = useState<number | ''>('');
   const [appointmentDate, setAppointmentDate] = useState('');
-  const [appointmentTime, setAppointmentTime] = useState('');
   const [department, setDepartment] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -37,10 +35,11 @@ export default function EditAppointmentPage() {
   const [amount, setAmount] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
-  const [bookedTimes, setBookedTimes] = useState<Set<string>>(new Set());
-  const [loadingSlots, setLoadingSlots] = useState(false);
-
-  const selectedDoctor = useMemo(() => doctors.find((d) => d.id === doctorId) || null, [doctors, doctorId]);
+  const [currentToken, setCurrentToken] = useState<number | null>(null);
+  const [origDoctorId, setOrigDoctorId] = useState<number | ''>('');
+  const [origDate, setOrigDate] = useState('');
+  const [nextToken, setNextToken] = useState<number | null>(null);
+  const [loadingToken, setLoadingToken] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -53,8 +52,10 @@ export default function EditAppointmentPage() {
         setDoctors((doctorsData.doctors || []).filter((d: Doctor) => d.active || d.id === a.doctor_id));
         setPatientLabel(`${a.patient_name} (${a.patient_phone})`);
         setDoctorId(a.doctor_id);
+        setOrigDoctorId(a.doctor_id);
         setAppointmentDate(a.appointment_date);
-        setAppointmentTime(a.appointment_time);
+        setOrigDate(a.appointment_date);
+        setCurrentToken(a.token_number);
         setDepartment(a.department || '');
         setReason(a.reason || '');
         setNotes(a.notes || '');
@@ -71,26 +72,26 @@ export default function EditAppointmentPage() {
     load();
   }, [id]);
 
+  const queueChanged = doctorId !== origDoctorId || appointmentDate !== origDate;
+
   useEffect(() => {
-    if (!doctorId || !appointmentDate) {
-      setBookedTimes(new Set());
+    if (!queueChanged || !doctorId || !appointmentDate) {
+      setNextToken(null);
       return;
     }
     let active = true;
-    setLoadingSlots(true);
+    setLoadingToken(true);
     api
       .get(`/api/appointments?doctor_id=${doctorId}&date=${appointmentDate}`)
       .then((data) => {
         if (!active) return;
-        const taken = (data.appointments || [])
-          .filter((a: any) => a.status !== 'cancelled' && String(a.id) !== String(id))
-          .map((a: any) => a.appointment_time);
-        setBookedTimes(new Set(taken));
+        const count = (data.appointments || []).filter((a: any) => a.status !== 'cancelled' && String(a.id) !== String(id)).length;
+        setNextToken(count + 1);
       })
-      .catch(() => { if (active) setBookedTimes(new Set()); })
-      .finally(() => { if (active) setLoadingSlots(false); });
+      .catch(() => { if (active) setNextToken(null); })
+      .finally(() => { if (active) setLoadingToken(false); });
     return () => { active = false; };
-  }, [doctorId, appointmentDate, id]);
+  }, [doctorId, appointmentDate, id, queueChanged]);
 
   const netPayable = Math.max(amount - discount, 0);
   const paymentStatus = paidAmount >= netPayable && netPayable > 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'unpaid';
@@ -103,7 +104,6 @@ export default function EditAppointmentPage() {
       await api.put(`/api/appointments/${id}`, {
         doctor_id: doctorId,
         appointment_date: appointmentDate,
-        appointment_time: appointmentTime,
         department,
         reason,
         notes,
@@ -156,42 +156,23 @@ export default function EditAppointmentPage() {
               <input type="date" className="kmc-input" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} />
             </div>
             <div className="sm:col-span-2">
-              <label className="kmc-label">Appointment Time</label>
-              {!selectedDoctor ? (
-                <p className="text-xs text-gray-400">Select a doctor to see available time slots.</p>
-              ) : loadingSlots ? (
-                <p className="text-xs text-gray-400">Loading slots...</p>
-              ) : selectedDoctor.slots.length === 0 ? (
-                <p className="text-xs text-crimson-600">
-                  This doctor has no time slots configured. Add slots on the Doctors page, or keep the existing time below.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {selectedDoctor.slots.map((t) => {
-                    const taken = bookedTimes.has(t);
-                    const active = appointmentTime === t;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        disabled={taken}
-                        onClick={() => setAppointmentTime(t)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                          taken
-                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed line-through'
-                            : active
-                            ? 'border-navy-700 bg-navy-700 text-white'
-                            : 'border-gray-200 text-gray-700 hover:bg-mist'
-                        }`}
-                      >
-                        {formatSlot(t)}
-                      </button>
-                    );
-                  })}
+              <label className="kmc-label">Queue Token</label>
+              {!queueChanged ? (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-mist w-fit">
+                  <Ticket size={16} className="text-navy-600" />
+                  <span className="text-sm text-navy-700">
+                    Currently <span className="font-bold text-navy-900">Token #{currentToken}</span>
+                  </span>
                 </div>
-              )}
-              {(!selectedDoctor || selectedDoctor.slots.length === 0) && (
-                <input type="time" className="kmc-input mt-2" value={appointmentTime} onChange={(e) => setAppointmentTime(e.target.value)} />
+              ) : loadingToken ? (
+                <p className="text-xs text-gray-400">Checking queue...</p>
+              ) : (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-crimson-100 bg-crimson-50 w-fit">
+                  <Ticket size={16} className="text-crimson-600" />
+                  <span className="text-sm text-crimson-700">
+                    Moving doctor/date will reassign this to <span className="font-bold">Token #{nextToken ?? '—'}</span>
+                  </span>
+                </div>
               )}
             </div>
             <div>
